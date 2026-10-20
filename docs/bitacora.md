@@ -38,7 +38,7 @@ Un cliente Git gratuito y de uso personal, inspirado en GitKraken. La necesidad 
 - Se puede abrir la app directo en un repo pasando la carpeta como argumento.
 - Documentación: README, arquitectura y esta bitácora.
 - El proyecto quedó en `D:\ProyectosPersonales\GitOno`, con su repositorio Git (rama `main`) y el primer commit.
-- Se preparó para publicarlo en GitHub como repo público:
+- Se publicó en GitHub como repo público: https://github.com/LucasSarappa/GitOno. Antes de subirlo:
   - se revisó que no hubiera credenciales ni datos personales en los archivos;
   - se agregó la licencia MIT;
   - se sumaron los archivos `.env` al `.gitignore`, para que ninguna credencial futura se suba por error.

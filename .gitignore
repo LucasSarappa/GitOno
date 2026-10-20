@@ -2,3 +2,7 @@ node_modules/
 out/
 dist/
 *.tsbuildinfo
+
+# Variables de entorno y credenciales locales: nunca se suben
+.env
+.env.*

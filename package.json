@@ -3,6 +3,7 @@
   "productName": "GitOno",
   "version": "0.1.0",
   "description": "Cliente Git gratuito para comparar ramas lado a lado, con soporte para GitHub, GitLab y más.",
+  "license": "MIT",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {

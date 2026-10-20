@@ -77,4 +77,4 @@ docs/
 
 ## Licencia
 
-Por definir. El proyecto está pensado para uso personal y gratuito.
+[MIT](LICENSE): podés usar, copiar y modificar el código libremente, manteniendo el aviso de autor.

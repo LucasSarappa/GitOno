@@ -13,3 +13,5 @@ Cliente Git de escritorio (Electron + React + TypeScript). Ver `README.md` y `do
 
 - `npm run dev`: app en modo desarrollo (`npx electron-vite dev -- <carpeta>` abre directo un repo).
 - `npm test`, `npm run typecheck` y `npm run build` tienen que pasar antes de dar algo por terminado.
+- `npm run dist`: instalador de Windows en `dist/` (configuración en `electron-builder.yml`).
+- Las dependencias que Vite empaqueta en `out/` (React, Monaco) van en `devDependencies`, para que electron-builder no las copie de nuevo dentro del instalador.

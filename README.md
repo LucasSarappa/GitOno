@@ -44,6 +44,23 @@ npx electron-vite dev -- "C:\ruta\a\tu\repo"
 | `npm start` | Abre la versión compilada. |
 | `npm test` | Corre los tests (incluye pruebas contra un repo Git real temporal). |
 | `npm run typecheck` | Revisa los tipos de TypeScript. |
+| `npm run dist` | Genera el instalador para Windows en `dist/`. |
+
+## Instalarlo en Windows
+
+```bash
+npm run dist
+```
+
+Esto genera `dist/GitOno-Setup-0.1.0.exe` (unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
+
+- podés elegir la carpeta de instalación;
+- crea accesos directos en el escritorio y en el menú Inicio;
+- se instala solo para tu usuario, sin permisos de administrador.
+
+El instalador no está firmado digitalmente (un certificado de firma de código es pago), así que Windows SmartScreen va a mostrar "Windows protegió tu PC". Tocá **Más información** y después **Ejecutar de todas formas**.
+
+Para actualizar, volvé a correr `npm run dist` e instalá encima. Para desinstalar, andá a **Configuración → Aplicaciones**.
 
 ## Estructura
 

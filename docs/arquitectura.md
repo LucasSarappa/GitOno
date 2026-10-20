@@ -111,3 +111,11 @@ Los estados de archivo usan símbolos (+, −, ~, →) en lugar de las letras de
 - `git/repo.test.ts`: crea un repo real en una carpeta temporal, con dos ramas, y prueba el núcleo completo (renombres, binarios, archivos borrados, referencias inválidas).
 - `providers/providers.test.ts`: lectura de URLs y detección de plataforma.
 - `renderer/src/lib/tree.test.ts`: armado del árbol de archivos.
+
+## Distribución
+
+- `npm run dist` compila con electron-vite y empaqueta con electron-builder (`electron-builder.yml`). Genera un instalador NSIS en `dist/`.
+- Al instalador solo entra `out/` y el `package.json`. React y Monaco están en `devDependencies` porque Vite ya los incluye en `out/renderer`; así no se copian dos veces y el `app.asar` pesa unos 24 MB.
+- La app empaquetada carga la interfaz desde `app.asar` con `file://`. Los workers de Monaco funcionan ahí sin configuración extra.
+- El ícono sale de `build/icon.svg`. electron-builder usa `build/icon.png` (512 × 512, fondo transparente) para generar el `.ico`. Si se cambia el SVG, hay que volver a exportar el PNG.
+- Sin firma digital ni actualización automática por ahora.

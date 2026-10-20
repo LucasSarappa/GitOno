@@ -4,6 +4,28 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-20 — Sesión 1 (continuación): instalador para Windows
+
+### Qué se hizo
+
+- Instalador con electron-builder: `npm run dist` genera `dist/GitOno-Setup-0.1.0.exe`. Instala por usuario, deja elegir la carpeta y crea accesos directos en el escritorio y el menú Inicio.
+- Ícono propio: `build/icon.svg` (fuente) y `build/icon.png` (512 × 512).
+- React, React DOM y Monaco pasaron a `devDependencies`. Vite ya los incluye en `out/`, así que no hace falta que electron-builder los empaquete otra vez. Resultado: `app.asar` de 24 MB e instalador de 110 MB (la mayor parte es Electron).
+
+### Cómo se probó
+
+- Se ejecutó el `GitOno.exe` empaquetado (`dist/win-unpacked`) sobre un repo de ejemplo. Compara ramas y muestra el diff con resaltado de sintaxis, sin errores en la consola. Monaco y sus workers funcionan dentro del `app.asar`.
+- El `.exe` lleva nombre, versión y copyright en sus propiedades.
+- El instalador en sí no se ejecutó: queda para hacerlo a mano.
+
+### Decisiones y pendientes
+
+- **Sin firma digital:** un certificado de firma de código es pago. Por eso Windows SmartScreen muestra un aviso la primera vez.
+- **Sin actualización automática:** para actualizar, se genera el instalador de nuevo y se instala encima.
+- **Ícono:** el PNG se generó renderizando el SVG con Electron. Cualquier exportador de SVG a PNG con fondo transparente sirve para regenerarlo.
+
+---
+
 ## 2026-10-20 — Sesión 1: idea y primera versión
 
 ### La idea

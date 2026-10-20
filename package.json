@@ -3,6 +3,7 @@
   "productName": "GitOno",
   "version": "0.1.0",
   "description": "Cliente Git gratuito para comparar ramas lado a lado, con soporte para GitHub, GitLab y más.",
+  "author": "Lucas Sarappa",
   "license": "MIT",
   "private": true,
   "main": "./out/main/index.js",
@@ -10,13 +11,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder --win",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "monaco-editor": "^0.57.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
@@ -24,7 +21,11 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "electron": "^44.9.2",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
+    "monaco-editor": "^0.57.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"

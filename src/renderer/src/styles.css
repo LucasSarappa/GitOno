@@ -166,16 +166,54 @@ select {
   min-width: 0;
 }
 .toolbar__repo,
-.toolbar__refs,
 .toolbar__end {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.toolbar__refs {
+.toolbar__end {
+  margin-left: auto;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- Pestañas ---------- */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  background: var(--bg);
+}
+.tab {
+  border: none;
+  background: none;
+  padding: 4px 14px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab--active,
+.tab--active:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.view {
   flex: 1;
-  justify-content: center;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .brand {
   font-weight: 700;
@@ -495,4 +533,407 @@ select {
 }
 .empty-state p {
   margin: 0;
+}
+
+/* ---------- Botones chicos y enlaces ---------- */
+
+.button--small {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.link-button {
+  border: none;
+  background: none;
+  padding: 0 3px;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+/* ---------- Comparar ramas ---------- */
+
+.compare {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.compare__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---------- Historial ---------- */
+
+.history {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 360px;
+}
+
+.refs-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.refs-panel__scroll {
+  flex: 1;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+.refs-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.refs-panel__section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.refs-panel__title {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.refs-panel__count {
+  font-weight: 400;
+}
+.refs-panel__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.refs-panel__item:hover {
+  background: var(--bg-hover);
+}
+.refs-panel__item--current {
+  font-weight: 700;
+}
+.refs-panel__marker {
+  width: 14px;
+  flex: none;
+  text-align: center;
+  color: var(--accent);
+  font-size: 11px;
+}
+.refs-panel__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.refs-panel__empty {
+  padding: 2px 30px;
+}
+
+.history__center {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.history__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 0;
+  border-bottom: 1px solid var(--border);
+}
+.history__search {
+  flex: 1;
+  max-width: 420px;
+}
+.history__matches {
+  white-space: nowrap;
+}
+.history__count {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.history__list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.history__diff {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.history__back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.history__details {
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Lista de commits con el gráfico */
+
+.commit-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+.commit-list__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  align-items: center;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.commit-list__header > span {
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.commit-list__rows {
+  position: relative;
+}
+.commit-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30px;
+  display: grid;
+  align-items: center;
+  cursor: default;
+}
+.commit-row:hover {
+  background: var(--bg-hover);
+}
+.commit-row--selected,
+.commit-row--selected:hover {
+  background: var(--bg-selected);
+}
+.commit-list:focus-visible .commit-row--selected {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.commit-row--dimmed {
+  opacity: 0.35;
+}
+.commit-row > div {
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.commit-row__message {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.commit-row__subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.commit-row__author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.commit-row__author > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.commit-row__date {
+  color: var(--text-muted);
+}
+.commit-row__sha {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.graph-cell {
+  display: block;
+  margin-left: 4px;
+  overflow: hidden;
+}
+.graph-cell path {
+  fill: none;
+  stroke-width: 2;
+}
+.graph-cell__merge {
+  fill: var(--bg);
+  stroke-width: 2.5;
+}
+.graph-cell__head {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0.55;
+}
+
+.ref-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 180px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--pill-color, var(--border));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ref-pill--local,
+.ref-pill--head {
+  background: var(--pill-color);
+  color: #ffffff;
+}
+.ref-pill--remote {
+  color: var(--pill-color);
+  background: transparent;
+}
+.ref-pill--tag {
+  color: var(--text);
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+.ref-pill--current {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--pill-color);
+}
+.ref-pill--more {
+  color: var(--text-muted);
+}
+.ref-pill__remotes {
+  margin-left: 4px;
+  padding-left: 4px;
+  border-left: 1px solid rgb(255 255 255 / 0.5);
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+/* Detalle del commit */
+
+.details {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.details--empty {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.details__header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  max-height: 40%;
+  overflow: auto;
+}
+.details__subject {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.details__body {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+}
+.details__meta {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.details__person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.details__sha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.details__sha code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.details__files-header {
+  padding: 8px 14px;
+}
+.details__files {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+.link-button + .link-button {
+  margin-left: 6px;
 }

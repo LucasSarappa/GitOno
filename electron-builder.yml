@@ -20,7 +20,10 @@ win:
 nsis:
   oneClick: false
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  # Siempre en %LOCALAPPDATA%\Programs\GitOno. No se deja elegir la carpeta porque el desinstalador
+  # de electron-builder borra la carpeta de instalación completa: si se eligiera, por ejemplo, la
+  # carpeta de un proyecto, desinstalar o actualizar la app la borraría entera.
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: GitOno

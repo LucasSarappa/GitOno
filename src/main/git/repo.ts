@@ -2,9 +2,27 @@
 // Las ramas se leen directo de la base de datos de Git, sin checkout ni segundo clon.
 
 import { basename } from 'node:path'
-import type { CompareResult, FileChange, FileContent, RefList, RepoInfo } from '../../shared/types'
+import type {
+  CommitDetails,
+  CommitPage,
+  CompareResult,
+  FileChange,
+  FileContent,
+  RefList,
+  RepoInfo
+} from '../../shared/types'
 import { detectProvider } from '../providers'
-import { looksBinary, parseNameStatus, parseNumstat, parseRefs } from './parse'
+import {
+  DETAILS_FORMAT,
+  LOG_FORMAT,
+  looksBinary,
+  parseCommitHeader,
+  parseLog,
+  parseNameStatus,
+  parseNumstat,
+  parseRefs,
+  REFS_FORMAT
+} from './parse'
 import { assertSafeRef, git, GitError, gitText } from './run'
 
 /** Archivos más grandes que esto no se muestran en el visor. */
@@ -38,22 +56,24 @@ async function defaultRemoteUrl(root: string): Promise<string | null> {
 }
 
 export async function listRefs(root: string): Promise<RefList> {
-  const [refsOutput, current] = await Promise.all([
-    gitText(root, [
-      'for-each-ref',
-      '--sort=-committerdate',
-      '--format=%(refname)%09%(refname:short)',
-      'refs/heads',
-      'refs/remotes',
-      'refs/tags'
-    ]),
+  const [refsOutput, current, head] = await Promise.all([
+    gitText(root, ['for-each-ref', '--sort=-committerdate', `--format=${REFS_FORMAT}`, 'refs/heads', 'refs/remotes', 'refs/tags']),
     // Sale con error si HEAD está desacoplado (detached); en ese caso no hay rama actual.
     gitText(root, ['symbolic-ref', '-q', 'HEAD']).then(
       (out) => out.trim() || null,
       () => null
-    )
+    ),
+    resolveHead(root)
   ])
-  return { current, refs: parseRefs(refsOutput) }
+  return { current, head, refs: parseRefs(refsOutput) }
+}
+
+/** SHA del commit actual, o null si el repo todavía no tiene commits. */
+async function resolveHead(root: string): Promise<string | null> {
+  return gitText(root, ['rev-parse', '-q', '--verify', 'HEAD^{commit}']).then(
+    (out) => out.trim() || null,
+    () => null
+  )
 }
 
 export async function fetchAll(root: string): Promise<void> {
@@ -64,22 +84,67 @@ export async function fetchAll(root: string): Promise<void> {
 export async function compareRefs(root: string, refA: string, refB: string): Promise<CompareResult> {
   assertSafeRef(refA)
   assertSafeRef(refB)
-  const diffArgs = ['-M', '--no-color', '--no-ext-diff', refA, refB, '--']
-  const [nameStatus, numstat, counts] = await Promise.all([
-    gitText(root, ['diff', '--name-status', '-z', ...diffArgs]),
-    gitText(root, ['diff', '--numstat', '-z', ...diffArgs]),
+  const [files, counts] = await Promise.all([
+    changedFiles(root, ['diff'], [refA, refB]),
     gitText(root, ['rev-list', '--left-right', '--count', `${refA}...${refB}`, '--'])
   ])
+  const [onlyInA, onlyInB] = counts.trim().split(/\s+/).map(Number)
+  return { files, commitsOnlyInA: onlyInA || 0, commitsOnlyInB: onlyInB || 0 }
+}
 
+/** Archivos cambiados entre dos versiones, con las líneas agregadas y borradas de cada uno. */
+async function changedFiles(root: string, command: string[], revs: string[]): Promise<FileChange[]> {
+  const options = ['-z', '-M', '--no-color', '--no-ext-diff', ...revs, '--']
+  const [nameStatus, numstat] = await Promise.all([
+    gitText(root, [...command, '--name-status', ...options]),
+    gitText(root, [...command, '--numstat', ...options])
+  ])
   const lineCounts = parseNumstat(numstat)
   const files: FileChange[] = parseNameStatus(nameStatus).map((entry) => {
     const lines = lineCounts.get(entry.path) ?? { additions: null, deletions: null }
     return { ...entry, ...lines }
   })
-  files.sort((a, b) => a.path.localeCompare(b.path))
+  return files.sort((a, b) => a.path.localeCompare(b.path))
+}
 
-  const [onlyInA, onlyInB] = counts.trim().split(/\s+/).map(Number)
-  return { files, commitsOnlyInA: onlyInA || 0, commitsOnlyInB: onlyInB || 0 }
+/** Límite de commits que se pueden pedir de una vez al cargar el historial. */
+export const MAX_COMMITS = 50_000
+
+/** Historial de todas las ramas, remotas y tags, ordenado por fecha (los hijos siempre antes que los padres). */
+export async function listCommits(root: string, limit: number): Promise<CommitPage> {
+  const count = Math.max(1, Math.min(Math.floor(limit), MAX_COMMITS))
+  const head = await resolveHead(root)
+  // Se listan ramas, remotas y tags en vez de usar --all, para que los stashes no aparezcan como commits sueltos.
+  const revs = ['--branches', '--remotes', '--tags', ...(head ? ['HEAD'] : [])]
+  let output: string
+  try {
+    output = await gitText(root, [
+      'log',
+      ...revs,
+      '--date-order',
+      '--no-show-signature',
+      `--max-count=${count + 1}`,
+      `--format=${LOG_FORMAT}`,
+      '--'
+    ])
+  } catch (error) {
+    if (!head) return { commits: [], hasMore: false } // repo recién creado, sin commits
+    throw error
+  }
+  const commits = parseLog(output)
+  return { commits: commits.slice(0, count), hasMore: commits.length > count }
+}
+
+export async function commitDetails(root: string, sha: string): Promise<CommitDetails> {
+  assertSafeRef(sha)
+  // ^{commit} resuelve tags anotados al commit al que apuntan.
+  const header = parseCommitHeader(
+    await gitText(root, ['show', '-s', '--no-show-signature', `--format=${DETAILS_FORMAT}`, `${sha}^{commit}`, '--'])
+  )
+  // Se compara contra el primer padre. El primer commit del repo se compara contra un árbol vacío (--root).
+  const revs = header.parents.length > 0 ? [header.parents[0], header.sha] : ['--root', header.sha]
+  const files = await changedFiles(root, ['diff-tree', '-r', '--no-commit-id'], revs)
+  return { ...header, files }
 }
 
 /** Lee un archivo tal como está guardado en `ref`, sin tocar la carpeta de trabajo. */

@@ -1,7 +1,7 @@
 // Parsers de la salida de Git. Se usa siempre `-z` (separador NUL) para que las rutas
 // con espacios, tildes o caracteres raros lleguen tal cual, sin comillas ni escapes.
 
-import type { ChangeStatus, RefInfo } from '../../shared/types'
+import type { ChangeStatus, CommitDetails, CommitInfo, RefInfo } from '../../shared/types'
 
 export interface NameStatusEntry {
   status: ChangeStatus
@@ -73,19 +73,68 @@ export function parseNumstat(output: string): Map<string, LineCounts> {
   return counts
 }
 
-/** Parsea `git for-each-ref --format=%(refname)%09%(refname:short)`. */
+export const REFS_FORMAT = '%(refname)%09%(refname:short)%09%(objectname)%09%(*objectname)'
+
+/**
+ * Parsea `git for-each-ref --format=REFS_FORMAT`. El último campo solo viene en los tags
+ * anotados: es el commit al que apunta el tag (el objectname es el del objeto tag).
+ */
 export function parseRefs(output: string): RefInfo[] {
   const refs: RefInfo[] = []
   for (const line of output.split('\n')) {
-    const [ref, name] = line.trim().split('\t')
-    if (!ref || !name) continue
+    const [ref, name, objectName, peeled] = line.trim().split('\t')
+    if (!ref || !name || !objectName) continue
     // origin/HEAD es solo un puntero a la rama por defecto del remoto
     if (ref.startsWith('refs/remotes/') && ref.endsWith('/HEAD')) continue
-    if (ref.startsWith('refs/heads/')) refs.push({ ref, name, kind: 'local' })
-    else if (ref.startsWith('refs/remotes/')) refs.push({ ref, name, kind: 'remote' })
-    else if (ref.startsWith('refs/tags/')) refs.push({ ref, name, kind: 'tag' })
+    const target = peeled || objectName
+    if (ref.startsWith('refs/heads/')) refs.push({ ref, name, kind: 'local', target })
+    else if (ref.startsWith('refs/remotes/')) refs.push({ ref, name, kind: 'remote', target })
+    else if (ref.startsWith('refs/tags/')) refs.push({ ref, name, kind: 'tag', target })
   }
   return refs
+}
+
+// Separador de campos para `git log`: un caracter de control que no aparece en nombres ni mensajes.
+const FIELD = '\x1f'
+export const LOG_FORMAT = ['%H', '%P', '%an', '%ae', '%at', '%s'].join('%x1f')
+
+/** Parsea `git log --format=LOG_FORMAT`: un commit por línea. */
+export function parseLog(output: string): CommitInfo[] {
+  const commits: CommitInfo[] = []
+  for (const line of output.split('\n')) {
+    if (!line) continue
+    const [sha, parents, authorName, authorEmail, authorDate, ...subject] = line.split(FIELD)
+    commits.push({
+      sha,
+      parents: parents ? parents.split(' ') : [],
+      authorName,
+      authorEmail,
+      authorDate: Number(authorDate),
+      subject: subject.join(FIELD).replace(/\r$/, '')
+    })
+  }
+  return commits
+}
+
+export const DETAILS_FORMAT = ['%H', '%P', '%an', '%ae', '%at', '%cn', '%ce', '%ct', '%B'].join('%x1f')
+
+/** Parsea `git show -s --format=DETAILS_FORMAT`. El mensaje completo va al final porque puede tener varias líneas. */
+export function parseCommitHeader(output: string): Omit<CommitDetails, 'files'> {
+  const [sha, parents, authorName, authorEmail, authorDate, committerName, committerEmail, committerDate, ...body] =
+    output.split(FIELD)
+  const message = body.join(FIELD).replace(/\r\n/g, '\n').trimEnd()
+  return {
+    sha: sha.trim(),
+    parents: parents ? parents.split(' ') : [],
+    authorName,
+    authorEmail,
+    authorDate: Number(authorDate),
+    committerName,
+    committerEmail,
+    committerDate: Number(committerDate),
+    message,
+    subject: message.split('\n', 1)[0]
+  }
 }
 
 /** Mismo criterio que usa Git: si hay un byte NUL al principio, es binario. */

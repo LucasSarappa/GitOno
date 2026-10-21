@@ -1,7 +1,15 @@
 import { resolve } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { IPC, type IpcResult } from '../shared/types'
-import { compareRefs, fetchAll, listRefs, openRepo, readFileAtRef } from './git/repo'
+import {
+  commitDetails,
+  compareRefs,
+  fetchAll,
+  listCommits,
+  listRefs,
+  openRepo,
+  readFileAtRef
+} from './git/repo'
 
 /** Registra un handler que nunca rechaza: los errores viajan como `{ ok: false }` con un mensaje legible. */
 function handle<Args extends unknown[], R>(channel: string, fn: (...args: Args) => Promise<R>): void {
@@ -35,4 +43,6 @@ export function registerIpc(): void {
   handle(IPC.fetchAll, (root: string) => fetchAll(root))
   handle(IPC.compare, (root: string, refA: string, refB: string) => compareRefs(root, refA, refB))
   handle(IPC.readFile, (root: string, ref: string, path: string) => readFileAtRef(root, ref, path))
+  handle(IPC.listCommits, (root: string, limit: number) => listCommits(root, limit))
+  handle(IPC.commitDetails, (root: string, sha: string) => commitDetails(root, sha))
 }

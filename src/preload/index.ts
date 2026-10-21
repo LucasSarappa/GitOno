@@ -14,7 +14,9 @@ const api: GitOnoApi = {
   listRefs: (root) => call(IPC.listRefs, root),
   fetchAll: (root) => call(IPC.fetchAll, root),
   compare: (root, refA, refB) => call(IPC.compare, root, refA, refB),
-  readFile: (root, ref, path) => call(IPC.readFile, root, ref, path)
+  readFile: (root, ref, path) => call(IPC.readFile, root, ref, path),
+  listCommits: (root, limit) => call(IPC.listCommits, root, limit),
+  commitDetails: (root, sha) => call(IPC.commitDetails, root, sha)
 }
 
 contextBridge.exposeInMainWorld('gitono', api)

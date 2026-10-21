@@ -4,6 +4,83 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-21 — Sesión 2: historial al estilo GitKraken (v0.2)
+
+### La idea
+
+Pasar de "comparador de ramas" a un cliente parecido a GitKraken, empezando por su pantalla principal: el historial con el gráfico de ramas. La lista completa de lo que falta quedó en la [hoja de ruta](roadmap.md), junto con extras propios.
+
+### Qué se hizo
+
+- **Núcleo Git:**
+  - `listCommits`: historial de ramas, remotas, tags y HEAD, por tandas;
+  - `commitDetails`: mensaje completo, autor, quién hizo el commit y archivos cambiados respecto del primer padre;
+  - las referencias ahora saben a qué commit apuntan (en los tags anotados, el commit y no el objeto tag), y `listRefs` devuelve el SHA de HEAD.
+- **Gráfico:** algoritmo de carriles en `lib/graph.ts` (explicado en la arquitectura). Se dibuja fila por fila en SVG, con colores por rama, nodos huecos para los merges y un anillo en HEAD.
+- **Pestaña Historial:**
+  - panel de ramas con filtro;
+  - lista virtualizada con etiquetas de ramas y tags, avatar con iniciales, fecha relativa y SHA;
+  - búsqueda con navegación entre coincidencias;
+  - detalle del commit con sus archivos, que abren el diff (se vuelve con Esc).
+- **Pestañas:** "Comparar ramas" pasó a su propia vista, sin cambios de funcionamiento. Las dos vistas quedan montadas para no perder lo que se estaba mirando.
+- **Documentación:**
+  - hoja de ruta nueva (`docs/roadmap.md`);
+  - README y arquitectura actualizados;
+  - versión 0.2.0.
+
+### Decisiones
+
+- **Orden del historial:** `--date-order`, como GitKraken.
+- **Stashes fuera del gráfico:** se excluyen (no se usa `--all`). Van a tener su propia sección en la etapa 3.
+- **Merges:** se muestran comparados contra su primer padre, igual que GitKraken y GitHub.
+- **Avatares:** con iniciales y un color por persona. No se piden imágenes a Gravatar, así la app no hace pedidos a internet ni expone emails.
+- **Etiquetas:** una rama local y su remota en el mismo commit se muestran en una sola etiqueta ("main · origin").
+- **Saltos a commits no cargados:** si se elige una rama o un padre que todavía no se cargó, se sigue cargando historial (de a 5.000) hasta encontrarlo.
+
+### Cómo se probó
+
+- 46 tests automáticos (antes 27), entre ellos:
+  - un repo real con merge y tag anotado;
+  - el algoritmo del gráfico;
+  - las etiquetas de cada commit.
+- Typecheck y build sin errores.
+- **Prueba manual en un repo de ejemplo** con ramas, merges, un tag y un remoto. Se verificó, con capturas y sin errores en la consola:
+  - el gráfico;
+  - el salto desde el panel de ramas;
+  - el diff de un archivo y la vuelta con Esc;
+  - la búsqueda;
+  - la navegación con teclado;
+  - los padres de un merge;
+  - la pestaña Comparar.
+- **Prueba de rendimiento** con un repo de 20.800 commits:
+  - la lista dibuja unas 40 filas a la vez;
+  - cada tanda nueva tarda unos 200 ms;
+  - saltar a un tag ubicado 15.000 commits atrás tarda 0,6 s.
+
+### Problemas encontrados y cómo se resolvieron
+
+- **Detalle de un tag anotado:** `git show` de un tag anotado muestra el tag y no el commit. Se resolvió pidiendo siempre `SHA^{commit}`. Lo encontró el test nuevo.
+- **Gráfico:** un carril recién abierto para un merge se dibujaba como si viniera de arriba. Lo encontró el test del gráfico.
+- **Carga duplicada:** al llegar al final de la lista se cargaban dos tandas en vez de una, porque el pedido se repetía antes de que arrancara la carga. Ahora solo se pide más si lo cargado ya alcanzó el límite actual.
+- **Detalles visuales:**
+  - el título "Gráfico" quedaba cortado con un solo carril;
+  - un remoto que es una carpeta local aparecía como "Sin remoto" (ahora dice "Remoto local");
+  - los padres de un merge salían pegados.
+
+- **Instalación dentro del proyecto (importante):** la v0.1 se instaló en `D:\ProyectosPersonales\GitOno`, la carpeta del proyecto. El instalador dejaba elegir la carpeta y le agrega el nombre de la app, así que eligiendo `D:\ProyectosPersonales` terminó ahí. El desinstalador de electron-builder borra la carpeta de instalación completa (`RMDir /r`), y actualizar ejecuta ese desinstalador. Desinstalar o instalar una versión nueva encima habría borrado el proyecto, incluido `.git`.
+  - Se detectó al ver archivos de la app (`GitOno.exe`, `resources/`, DLL) sin seguimiento en `git status`.
+  - Desde esta versión el instalador ya no deja elegir la carpeta: siempre usa `%LOCALAPPDATA%\Programs\GitOno`.
+  - La instalación de la v0.1 que quedó en el proyecto hay que limpiarla a mano, sin usar su desinstalador.
+
+### Pendiente
+
+- Limpiar la instalación de la v0.1 que quedó dentro de la carpeta del proyecto.
+- Etapa 2 de la hoja de ruta: cambios locales (WIP, preparar y commitear).
+- La búsqueda solo recorre los commits ya cargados.
+- Los paneles laterales del historial tienen ancho fijo.
+
+---
+
 ## 2026-10-20 — Sesión 1 (continuación): instalador para Windows
 
 ### Qué se hizo

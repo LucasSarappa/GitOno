@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { looksBinary, parseNameStatus, parseNumstat, parseRefs } from './parse'
+import { looksBinary, parseCommitHeader, parseLog, parseNameStatus, parseNumstat, parseRefs } from './parse'
 
 describe('parseNameStatus', () => {
   it('lee cambios simples, renombres y rutas con espacios', () => {
@@ -31,17 +31,58 @@ describe('parseNumstat', () => {
 describe('parseRefs', () => {
   it('clasifica ramas locales, remotas y tags, y descarta origin/HEAD', () => {
     const output = [
-      'refs/heads/main\tmain',
-      'refs/remotes/origin/HEAD\torigin',
-      'refs/remotes/origin/feature\torigin/feature',
-      'refs/tags/v1.0\tv1.0',
+      'refs/heads/main\tmain\taaa\t',
+      'refs/remotes/origin/HEAD\torigin\taaa\t',
+      'refs/remotes/origin/feature\torigin/feature\tbbb\t',
+      'refs/tags/v1.0\tv1.0\tccc\t',
       ''
     ].join('\n')
     expect(parseRefs(output)).toEqual([
-      { ref: 'refs/heads/main', name: 'main', kind: 'local' },
-      { ref: 'refs/remotes/origin/feature', name: 'origin/feature', kind: 'remote' },
-      { ref: 'refs/tags/v1.0', name: 'v1.0', kind: 'tag' }
+      { ref: 'refs/heads/main', name: 'main', kind: 'local', target: 'aaa' },
+      { ref: 'refs/remotes/origin/feature', name: 'origin/feature', kind: 'remote', target: 'bbb' },
+      { ref: 'refs/tags/v1.0', name: 'v1.0', kind: 'tag', target: 'ccc' }
     ])
+  })
+
+  it('en los tags anotados usa el commit al que apunta el tag', () => {
+    expect(parseRefs('refs/tags/v2\tv2\tobjeto-tag\tcommit-real\n')[0].target).toBe('commit-real')
+  })
+})
+
+describe('parseLog', () => {
+  it('lee un commit por línea, con padres y mensajes con caracteres raros', () => {
+    const output = [
+      ['c3', 'c2 f1', 'Ana Pérez', 'ana@example.com', '1700000300', 'Merge: rama "x" | y'].join('\x1f'),
+      ['c1', '', 'Bo', 'bo@example.com', '1700000100', 'inicial\r'].join('\x1f'),
+      ''
+    ].join('\n')
+    expect(parseLog(output)).toEqual([
+      {
+        sha: 'c3',
+        parents: ['c2', 'f1'],
+        authorName: 'Ana Pérez',
+        authorEmail: 'ana@example.com',
+        authorDate: 1700000300,
+        subject: 'Merge: rama "x" | y'
+      },
+      { sha: 'c1', parents: [], authorName: 'Bo', authorEmail: 'bo@example.com', authorDate: 1700000100, subject: 'inicial' }
+    ])
+  })
+})
+
+describe('parseCommitHeader', () => {
+  it('separa el resumen del mensaje completo', () => {
+    const output = ['c2', 'c1', 'Ana', 'ana@x.com', '10', 'Bo', 'bo@x.com', '20', 'Resumen\r\n\r\nDetalle\nmás detalle\n\n'].join(
+      '\x1f'
+    )
+    expect(parseCommitHeader(output)).toMatchObject({
+      sha: 'c2',
+      parents: ['c1'],
+      committerName: 'Bo',
+      committerDate: 20,
+      subject: 'Resumen',
+      message: 'Resumen\n\nDetalle\nmás detalle'
+    })
   })
 })
 

@@ -35,12 +35,42 @@ export interface RefInfo {
   /** Nombre corto para mostrar (ej. "main" u "origin/main"). */
   name: string
   kind: RefKind
+  /** SHA del commit al que apunta (en tags anotados, el commit y no el objeto tag). */
+  target: string
 }
 
 export interface RefList {
   /** Rama en la que está parado el repo, o null si HEAD está desacoplado. */
   current: string | null
+  /** SHA del commit actual (HEAD), o null si el repo todavía no tiene commits. */
+  head: string | null
   refs: RefInfo[]
+}
+
+export interface CommitInfo {
+  sha: string
+  parents: string[]
+  authorName: string
+  authorEmail: string
+  /** Fecha del autor, en segundos desde 1970. */
+  authorDate: number
+  subject: string
+}
+
+export interface CommitPage {
+  commits: CommitInfo[]
+  /** Hay más commits para cargar más allá del límite pedido. */
+  hasMore: boolean
+}
+
+export interface CommitDetails extends CommitInfo {
+  committerName: string
+  committerEmail: string
+  committerDate: number
+  /** Mensaje completo: resumen y descripción. */
+  message: string
+  /** Archivos cambiados respecto del primer padre (o todos, si es el primer commit). */
+  files: FileChange[]
 }
 
 export interface ProviderInfo {
@@ -76,6 +106,9 @@ export interface GitOnoApi {
   fetchAll(root: string): Promise<void>
   compare(root: string, refA: string, refB: string): Promise<CompareResult>
   readFile(root: string, ref: string, path: string): Promise<FileContent>
+  /** Historial de todas las ramas y tags, del más nuevo al más viejo. */
+  listCommits(root: string, limit: number): Promise<CommitPage>
+  commitDetails(root: string, sha: string): Promise<CommitDetails>
 }
 
 export const IPC = {
@@ -85,7 +118,9 @@ export const IPC = {
   listRefs: 'git:list-refs',
   fetchAll: 'git:fetch-all',
   compare: 'git:compare',
-  readFile: 'git:read-file'
+  readFile: 'git:read-file',
+  listCommits: 'git:list-commits',
+  commitDetails: 'git:commit-details'
 } as const
 
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: string }

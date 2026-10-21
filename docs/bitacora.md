@@ -70,11 +70,19 @@ Pasar de "comparador de ramas" a un cliente parecido a GitKraken, empezando por 
 - **Instalación dentro del proyecto (importante):** la v0.1 se instaló en `D:\ProyectosPersonales\GitOno`, la carpeta del proyecto. El instalador dejaba elegir la carpeta y le agrega el nombre de la app, así que eligiendo `D:\ProyectosPersonales` terminó ahí. El desinstalador de electron-builder borra la carpeta de instalación completa (`RMDir /r`), y actualizar ejecuta ese desinstalador. Desinstalar o instalar una versión nueva encima habría borrado el proyecto, incluido `.git`.
   - Se detectó al ver archivos de la app (`GitOno.exe`, `resources/`, DLL) sin seguimiento en `git status`.
   - Desde esta versión el instalador ya no deja elegir la carpeta: siempre usa `%LOCALAPPDATA%\Programs\GitOno`.
-  - La instalación de la v0.1 que quedó en el proyecto hay que limpiarla a mano, sin usar su desinstalador.
+  - **Limpieza manual, sin usar el desinstalador:**
+    - primero se hizo commit y push;
+    - se borraron solo los 19 archivos sin seguimiento que coincidían uno a uno con el paquete de la app;
+    - se borraron los dos accesos directos, después de verificar que apuntaban a esa instalación;
+    - se borraron las dos claves de registro de GitOno 0.1.0: la de desinstalación y la de `HKCU\Software\<appId>`. Esta última guarda la carpeta de instalación, que el instalador nuevo habría usado para desinstalar la versión vieja.
+  - **Quedó un archivo:** `resources/app.asar` no se pudo borrar porque lo tenía abierto la app de Claude, cuyo panel de archivos mira la carpeta (Electron deja abiertos los `.asar` que lee). Es inofensivo y se borra a mano después de reiniciar esa app.
+  - **Error propio durante la limpieza:** al leer la versión de la app instalada, se extrajo su `package.json` encima del del proyecto. Se restauró al instante desde el commit y no se perdió nada.
+  - **Instalador viejo:** se borró `dist/GitOno-Setup-0.1.0.exe`, el que dejaba elegir la carpeta.
 
 ### Pendiente
 
-- Limpiar la instalación de la v0.1 que quedó dentro de la carpeta del proyecto.
+- Borrar `resources/` de la raíz del proyecto después de reiniciar la app de Claude.
+- Instalar la v0.2.0 (`dist/GitOno-Setup-0.2.0.exe`), que ya va a `%LOCALAPPDATA%\Programs\GitOno`.
 - Etapa 2 de la hoja de ruta: cambios locales (WIP, preparar y commitear).
 - La búsqueda solo recorre los commits ya cargados.
 - Los paneles laterales del historial tienen ancho fijo.

@@ -12,6 +12,15 @@ const MAX_VISIBLE_LANES = 20
 const OVERSCAN = 12
 const MAX_PILLS = 3
 
+/** SHA de la fila de cambios sin commitear. No es un SHA real, así que nunca choca con un commit. */
+export const WIP_SHA = 'wip'
+
+export interface WipSummary {
+  staged: number
+  unstaged: number
+  conflicted: number
+}
+
 export interface ScrollRequest {
   sha: string
   align: 'center' | 'nearest'
@@ -28,6 +37,8 @@ interface Props {
   /** Commits que coinciden con la búsqueda; null si no hay búsqueda activa. */
   matches: ReadonlySet<string> | null
   scrollRequest: ScrollRequest | null
+  /** Resumen de la fila de cambios sin commitear, si está en la lista. */
+  wip: WipSummary | null
   onSelect(sha: string, viaKeyboard: boolean): void
   onNearEnd(): void
 }
@@ -36,7 +47,18 @@ interface Props {
  * Lista virtualizada: solo se dibujan las filas visibles, así el historial de repos
  * grandes (decenas de miles de commits) se mueve igual de rápido.
  */
-export function CommitList({ commits, graph, labels, head, selectedSha, matches, scrollRequest, onSelect, onNearEnd }: Props) {
+export function CommitList({
+  commits,
+  graph,
+  labels,
+  head,
+  selectedSha,
+  matches,
+  scrollRequest,
+  wip,
+  onSelect,
+  onNearEnd
+}: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
@@ -96,6 +118,25 @@ export function CommitList({ commits, graph, labels, head, selectedSha, matches,
     const row = graph.rows[index]
     const selected = commit.sha === selectedSha
     const dimmed = matches !== null && !matches.has(commit.sha)
+    if (commit.sha === WIP_SHA && wip) {
+      rows.push(
+        <div
+          key={WIP_SHA}
+          className={`commit-row commit-row--wip${selected ? ' commit-row--selected' : ''}${dimmed ? ' commit-row--dimmed' : ''}`}
+          style={{ transform: `translateY(${index * ROW_HEIGHT}px)`, gridTemplateColumns: template }}
+          onClick={() => onSelect(WIP_SHA, false)}
+          aria-selected={selected}
+          role="row"
+        >
+          <CommitGraphCell row={row} lanes={lanes} isHead={false} isMerge={false} isVirtual />
+          <div className="commit-row__message">
+            <span className="commit-row__wip">// WIP</span>
+            <span className="commit-row__subject">{wipSummary(wip)}</span>
+          </div>
+        </div>
+      )
+      continue
+    }
     rows.push(
       <div
         key={commit.sha}
@@ -174,6 +215,14 @@ function RefPills({ labels, color }: { labels: RefLabel[] | undefined; color: st
       )}
     </>
   )
+}
+
+function wipSummary({ staged, unstaged, conflicted }: WipSummary): string {
+  const parts = []
+  if (conflicted > 0) parts.push(`${conflicted} con conflictos`)
+  if (unstaged > 0) parts.push(`${unstaged} sin preparar`)
+  if (staged > 0) parts.push(`${staged} ${staged === 1 ? 'preparado' : 'preparados'}`)
+  return parts.join(' · ')
 }
 
 function pillTitle(label: RefLabel): string {

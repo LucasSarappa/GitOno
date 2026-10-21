@@ -13,12 +13,14 @@ export class GitError extends Error {
 interface RunOptions {
   maxBuffer?: number
   timeoutMs?: number
+  /** Texto que se le pasa a Git por la entrada estándar (un parche, un mensaje de commit). */
+  input?: string
 }
 
 /** Ejecuta `git` en `cwd` y devuelve la salida cruda (sirve también para archivos binarios). */
 export function git(cwd: string, args: string[], options: RunOptions = {}): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       'git',
       ['-c', 'core.quotepath=false', ...args],
       {
@@ -35,10 +37,13 @@ export function git(cwd: string, args: string[], options: RunOptions = {}): Prom
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           return reject(new GitError('No se encontró Git. Instalá Git (https://git-scm.com) y volvé a abrir la app.'))
         }
-        const text = stderr.toString('utf8').trim()
+        // Algunos comandos (como commit sin cambios) explican el error por la salida normal.
+        const text = stderr.toString('utf8').trim() || stdout.toString('utf8').trim()
         reject(new GitError(text || error.message, text))
       }
     )
+    // Siempre se cierra la entrada: si un comando intentara leerla, no queda esperando para siempre.
+    child.stdin?.end(options.input ?? '')
   })
 }
 

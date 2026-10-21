@@ -81,6 +81,48 @@ Decisiones:
   - se pide `SHA^{commit}` para que también funcione si llega el SHA de un tag anotado;
   - los merges se comparan contra su primer padre, igual que GitKraken y GitHub.
 
+### Cambios locales (`src/main/git/worktree.ts`)
+
+| Función | Comando Git | Para qué |
+|---|---|---|
+| `workingStatus` | `git --no-optional-locks status --porcelain=v2 --branch -z` | Archivos preparados, sin preparar, nuevos y con conflictos. |
+| `readSource` | `git cat-file blob :ruta` o lectura del disco | Leer un archivo del índice o de la carpeta de trabajo. |
+| `workingDiff` | `git diff [--cached] --src-prefix=a/ --dst-prefix=b/` | Diff de un archivo en el formato que entiende `git apply`. |
+| `stageFiles` / `unstageFiles` | `git add -A`, `git restore --staged` (o `git rm --cached` sin commits) | Preparar o quitar archivos enteros. |
+| `restoreWorktree` | `git restore --worktree` | Descartar cambios sin preparar. |
+| `applyPatch` | `git apply --recount [--cached] [--reverse] -` | Preparar, quitar o descartar bloques o líneas. |
+| `commit` | `git commit --file=- --cleanup=whitespace [--amend]` | Hacer o enmendar un commit. |
+
+Decisiones:
+
+- **`--no-optional-locks` en `status`:** sin esa opción, `git status` puede reescribir el índice. La app vería ese cambio en el disco, volvería a pedir el estado y entraría en un ciclo.
+- **Rutas por la entrada estándar:** `--pathspec-from-file=- --pathspec-file-nul` evita el límite de largo de la línea de comandos de Windows (unos 32.000 caracteres) al preparar muchos archivos, y los problemas con nombres raros.
+- **Mensaje del commit por la entrada estándar** (`--file=-`), con `--cleanup=whitespace` para respetar las líneas que empiezan con `#` (por ejemplo `#123 corrige el login`).
+- **Prefijos fijos en el diff** (`a/` y `b/`): si el usuario tiene `diff.noprefix` o `diff.mnemonicPrefix` configurados, el parche igual se puede aplicar.
+- **Archivos nuevos que se descartan:** van a la papelera de reciclaje (`shell.trashItem`, en `ipc.ts`), así se pueden recuperar. Los cambios en archivos con seguimiento no se pueden recuperar, y la interfaz siempre pide confirmación.
+- **Rutas siempre dentro del repo:** `insideRepo` rechaza rutas como `../x` o absolutas antes de leer o mandar a la papelera.
+
+### Parches por bloque y por línea (`src/shared/patch.ts`)
+
+`parseFileDiff` lee la salida de `git diff` de un archivo. `buildPatch` arma un parche solo con las líneas elegidas. Está en `shared/` porque lo usa la interfaz (para armar el parche) y lo prueban los tests del núcleo contra repos reales.
+
+- **Para preparar** (el parche se aplica tal cual al índice): una línea agregada que no se eligió se saca del parche, y una borrada que no se eligió pasa a ser contexto, porque sigue estando.
+- **Para quitar o descartar** (el parche se aplica al revés): es lo contrario. Una agregada que no se eligió pasa a ser contexto y una borrada que no se eligió se saca.
+- **`--recount`:** se aplica con esa opción para que Git recalcule los números de cada bloque.
+- **Diff viejo:** si el archivo cambió entre que se mostró el diff y se aplicó la acción, `git apply` falla sin tocar nada (lo verifica un test), y la app muestra el error.
+- **Finales de línea de Windows:** se conserva el `\r` de cada línea, y Git convierte los finales al aplicar. Hay un test con `core.autocrlf=true`.
+- **Solo archivos modificados:** por ahora, preparar por línea se ofrece solo en archivos modificados. Los nuevos, borrados o renombrados se manejan enteros.
+
+### Vigilancia del disco (`src/main/git/watch.ts`)
+
+Un `fs.watch` recursivo sobre la carpeta del repo avisa a la interfaz por el canal `repo:changed`:
+
+- **`worktree`:** cambió un archivo del proyecto o `.git/index`. Se relee solo el estado.
+- **`refs`:** cambió `.git/HEAD`, `.git/refs/…` o `packed-refs`. Se releen ramas, historial y estado.
+- **Se ignora:** los `.lock` (son temporales de Git), `objects/` y `logs/`.
+- **Ráfagas:** los cambios se agrupan. El aviso sale 300 ms después del primero de una ráfaga, aunque sigan llegando más; durante algo largo, como un `npm install`, la app se sigue actualizando cada tanto.
+- **Al volver a la ventana** también se relee el estado.
+
 ### Adaptadores de plataforma (`src/main/providers/`)
 
 Cada plataforma implementa la interfaz `GitProvider` (`providers/types.ts`). El resto de la app solo conoce esa interfaz.
@@ -106,8 +148,11 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
 
 ## Interfaz (`src/renderer/src/`)
 
-- `App.tsx`: repo abierto, referencias, pestañas, botón de fetch y avisos de error. Las dos vistas quedan montadas (se ocultan con `hidden`), así al cambiar de pestaña no se pierde lo que estabas mirando. Cuando cambia `reloadKey` (después de un fetch), las vistas vuelven a leer Git.
-- `views/HistoryView.tsx`: pestaña Historial. Panel de ramas, lista de commits, búsqueda, detalle y diff de un archivo del commit.
+- `App.tsx`: repo abierto, referencias, pestañas, botón de fetch y avisos de error. Las dos vistas quedan montadas (se ocultan con `hidden`), así al cambiar de pestaña no se pierde lo que estabas mirando. Se suscribe a los avisos de cambios en el disco y maneja dos contadores: `reloadKey` (ramas e historial: fetch, commit, cambios en `.git/refs`) y `statusKey` (carpeta de trabajo).
+- `views/HistoryView.tsx`: pestaña Historial. Panel de ramas, lista de commits con la fila WIP, búsqueda y panel derecho, que muestra el detalle del commit o, con la fila WIP elegida, el panel de preparación. Cuando un archivo local abierto se prepara entero, la vista pasa a mostrarlo como preparado; si ya no tiene cambios, vuelve al gráfico.
+- `components/WorkingTreePanel.tsx`: archivos sin preparar, preparados y con conflictos, y la caja de commit. El borrador del mensaje vive en `HistoryView`, así no se pierde al mirar otro commit.
+- `components/WorkingFileView.tsx`: un archivo local en el centro, por bloques (`HunkView`) o lado a lado (`DiffView` con el índice o la carpeta de trabajo como origen).
+- `components/HunkView.tsx`: bloques del diff con sus botones y selección de líneas.
 - `views/CompareView.tsx`: pestaña Comparar ramas.
 - `components/CommitList.tsx`: lista de commits **virtualizada**. Solo dibuja las filas visibles (más un margen), así 20.000 commits se mueven igual de rápido que 20. Al acercarse al final pide otra tanda de 1.000.
 - `components/CommitGraphCell.tsx`: el gráfico de una fila, en SVG.
@@ -138,8 +183,17 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
 - `git/parse.test.ts`: parsers de la salida de Git.
 - `git/repo.test.ts`: crea un repo real en una carpeta temporal, con dos ramas, y prueba el núcleo completo (renombres, binarios, archivos borrados, referencias inválidas).
 - `git/log.test.ts`: historial y detalle de commits contra un repo real con merge y tag anotado. Prueba el orden, los límites, el primer commit, los merges y los repos vacíos. Usa fechas fijas para que el orden sea predecible.
+- `git/worktree.test.ts`: cambios locales contra repos reales, entre ellos:
+  - estado;
+  - preparar, quitar y descartar archivos;
+  - preparar, quitar y descartar bloques y líneas sueltas;
+  - parches viejos;
+  - `core.autocrlf=true` con CRLF;
+  - commit en un repo vacío y enmendar.
+- `git/watch.test.ts`: clasificación de cambios en el disco y agrupado de ráfagas.
+- `shared/patch.test.ts`: lectura de diffs y armado de parches parciales (también "sin salto de línea al final").
 - `providers/providers.test.ts`: lectura de URLs y detección de plataforma.
-- `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados).
+- `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados, fila WIP punteada).
 - `renderer/src/lib/refs.test.ts`: etiquetas de cada commit.
 - `renderer/src/lib/tree.test.ts`: armado del árbol de archivos.
 

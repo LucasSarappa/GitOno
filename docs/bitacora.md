@@ -4,6 +4,72 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-21 — Sesión 2 (continuación): cambios locales y commits (v0.3)
+
+### Qué se hizo
+
+Etapa 2 de la [hoja de ruta](roadmap.md), al estilo de la sección WIP de GitKraken:
+
+- **Núcleo** (`git/worktree.ts`):
+  - estado de la carpeta de trabajo;
+  - lectura de archivos del índice y del disco;
+  - preparar, quitar y descartar archivos;
+  - aplicar parches;
+  - commit y enmendado.
+  
+  `git()` ahora acepta texto por la entrada estándar (parches, mensajes, listas de rutas), y si Git explica el error por la salida normal en lugar de stderr, lo muestra igual.
+- **Parches por bloque y por línea** (`shared/patch.ts`): leer un diff y armar un parche solo con las líneas elegidas, hacia adelante (preparar) o al revés (quitar o descartar).
+- **Vigilancia del disco** (`git/watch.ts`): la app se refresca sola ante cambios en archivos, ramas o HEAD, también los hechos desde la terminal o el editor.
+- **Interfaz:**
+  - fila "// WIP" en el gráfico, con línea punteada hasta el commit actual;
+  - panel de preparación con caja de commit;
+  - vista por bloques con selección de líneas;
+  - vista lado a lado contra el índice o el último commit;
+  - confirmación nativa de Windows antes de descartar.
+- Versión 0.3.0.
+
+### Decisiones
+
+- **Preparar por línea** solo se ofrece en archivos modificados. Los nuevos, borrados o renombrados se preparan enteros, porque los parches parciales de esos casos son frágiles con `git apply`.
+- **Descartes:** los archivos nuevos van a la papelera de reciclaje. Los cambios en archivos con seguimiento no tienen vuelta atrás, así que siempre se pide confirmación.
+- **Parches:** el parche se arma en la interfaz con el diff que el usuario está viendo. Si el archivo cambió mientras tanto, `git apply` falla sin tocar nada, en vez de aplicar algo distinto a lo que se vio.
+- **Borrador del commit:** vive en la vista Historial y no en el panel, así no se pierde al mirar otro commit.
+- **`git status --no-optional-locks`:** evita un ciclo entre el vigilante del disco y el refresco del estado.
+
+### Cómo se probó
+
+- **85 tests automáticos** (antes 46), entre ellos:
+  - preparar, quitar y descartar bloques y líneas contra repos reales, también con `core.autocrlf=true`;
+  - parches viejos;
+  - commit en un repo vacío;
+  - enmendar;
+  - el vigilante del disco.
+- Typecheck y build sin errores.
+- **Prueba manual en la app compilada**, verificando cada resultado con Git desde afuera:
+  - fila WIP y panel;
+  - vista por bloques;
+  - preparar un bloque;
+  - preparar una sola línea;
+  - quitar una sola línea preparada;
+  - preparar un archivo nuevo;
+  - commit con descripción (Ctrl+Enter);
+  - enmendar (trae el mensaje anterior).
+- **Refresco automático:** un archivo creado desde la terminal y un commit hecho desde la terminal aparecieron en la app en unos 0,3 s.
+- **Descartar** se probó llamando a la API de la app, que recorre el mismo camino que el botón salvo el cuadro de confirmación. El cuadro se verificó por separado: aparece con su título, sus textos y los botones "Descartar" y "Cancelar". No se pudo presionar su botón de forma automática.
+
+### Problemas encontrados y cómo se resolvieron
+
+- **Test de parche viejo:** el primer test esperaba que preparar con un diff viejo fallara, pero preparar aplica al índice, que no había cambiado, así que es correcto que funcione. El caso que sí tiene que fallar es descartar, que toca el disco, y eso es lo que prueba ahora.
+- **Prueba del cuadro de confirmación:** se intentó presionar su botón con teclas simuladas. Windows no le dio el foco al cuadro y las teclas llegaron a otra ventana. Se abandonó ese método y se verificó de otra forma, como se explica arriba.
+
+### Pendiente
+
+- Preparar por línea en archivos nuevos, borrados o renombrados.
+- Resolver conflictos dentro de la app (etapa 4). Por ahora se resuelven en el editor y se marcan como resueltos.
+- Etapa 3 de la hoja de ruta: operaciones (checkout, ramas, pull/push, merge, rebase, stash, menú contextual).
+
+---
+
 ## 2026-10-21 — Sesión 2: historial al estilo GitKraken (v0.2)
 
 ### La idea

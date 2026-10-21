@@ -89,6 +89,48 @@ export interface RepoInfo {
   provider: ProviderInfo | null
 }
 
+/** Un archivo con cambios sin commitear. */
+export interface WorkingFile {
+  path: string
+  /** Ruta anterior, si el cambio preparado es un renombre. */
+  oldPath?: string
+  status: ChangeStatus
+  /** Archivo nuevo que Git todavía no sigue (nunca se preparó). */
+  untracked?: boolean
+}
+
+export interface WorkingTreeStatus {
+  /** SHA del commit actual, o null si el repo todavía no tiene commits. */
+  head: string | null
+  /** Rama actual (nombre corto), o null si HEAD está desacoplado. */
+  branch: string | null
+  /** Cambios preparados para el próximo commit (índice contra HEAD). */
+  staged: WorkingFile[]
+  /** Cambios sin preparar (carpeta de trabajo contra el índice), incluidos los archivos nuevos. */
+  unstaged: WorkingFile[]
+  /** Archivos con conflictos de merge sin resolver. */
+  conflicted: WorkingFile[]
+}
+
+export type WorkingArea = 'staged' | 'unstaged'
+
+/** De dónde se lee una versión de un archivo. */
+export type FileSource = { kind: 'ref'; ref: string } | { kind: 'index' } | { kind: 'worktree' }
+
+/** Qué hacer con un parche de bloques o líneas elegidas. */
+export type PatchAction = 'stage' | 'unstage' | 'discard'
+
+export interface ConfirmOptions {
+  title: string
+  message: string
+  detail?: string
+  /** Texto del botón que confirma (ej. "Descartar"). */
+  confirmLabel: string
+}
+
+/** Qué cambió en el disco: solo la carpeta de trabajo, o también ramas y commits. */
+export type RepoChange = 'worktree' | 'refs'
+
 export type FileContent =
   | { kind: 'text'; text: string }
   | { kind: 'missing' }
@@ -105,10 +147,32 @@ export interface GitOnoApi {
   listRefs(root: string): Promise<RefList>
   fetchAll(root: string): Promise<void>
   compare(root: string, refA: string, refB: string): Promise<CompareResult>
-  readFile(root: string, ref: string, path: string): Promise<FileContent>
+  /** Lee una versión de un archivo: de un commit o rama, del índice o de la carpeta de trabajo. */
+  readFile(root: string, source: FileSource, path: string): Promise<FileContent>
   /** Historial de todas las ramas y tags, del más nuevo al más viejo. */
   listCommits(root: string, limit: number): Promise<CommitPage>
   commitDetails(root: string, sha: string): Promise<CommitDetails>
+
+  // Cambios locales
+  workingStatus(root: string): Promise<WorkingTreeStatus>
+  /** Diff unificado de un archivo: preparado (HEAD → índice) o sin preparar (índice → carpeta). */
+  workingDiff(root: string, path: string, area: WorkingArea): Promise<string>
+  stageFiles(root: string, paths: string[]): Promise<void>
+  unstageFiles(root: string, paths: string[]): Promise<void>
+  /** Descarta cambios sin preparar. Los archivos nuevos van a la papelera de reciclaje. */
+  discardFiles(root: string, files: WorkingFile[]): Promise<void>
+  /** Aplica un parche con bloques o líneas elegidas (ver shared/patch.ts). */
+  applyPatch(root: string, patch: string, action: PatchAction): Promise<void>
+  /** Hace el commit y devuelve el SHA nuevo. */
+  commit(root: string, message: string, amend: boolean): Promise<string>
+  lastCommitMessage(root: string): Promise<string>
+
+  /** Pregunta con un cuadro de diálogo de Windows. Devuelve true si el usuario confirma. */
+  confirm(options: ConfirmOptions): Promise<boolean>
+  /** Empieza a vigilar el repo; los cambios llegan por `onRepoChanged`. */
+  watchRepo(root: string): Promise<void>
+  /** Avisa cuando cambia algo en el repo. Devuelve una función para dejar de escuchar. */
+  onRepoChanged(listener: (change: RepoChange) => void): () => void
 }
 
 export const IPC = {
@@ -120,7 +184,19 @@ export const IPC = {
   compare: 'git:compare',
   readFile: 'git:read-file',
   listCommits: 'git:list-commits',
-  commitDetails: 'git:commit-details'
+  commitDetails: 'git:commit-details',
+  workingStatus: 'git:working-status',
+  workingDiff: 'git:working-diff',
+  stageFiles: 'git:stage-files',
+  unstageFiles: 'git:unstage-files',
+  discardFiles: 'git:discard-files',
+  applyPatch: 'git:apply-patch',
+  commit: 'git:commit',
+  lastCommitMessage: 'git:last-commit-message',
+  confirm: 'ui:confirm',
+  watchRepo: 'repo:watch',
+  /** Evento del proceso principal hacia la interfaz (no es un pedido). */
+  repoChanged: 'repo:changed'
 } as const
 
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: string }

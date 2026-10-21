@@ -1,10 +1,24 @@
 # GitOno
 
-Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: historial con gráfico de ramas, detalle de cada commit y diferencias con el visor de VS Code. Suma algo que GitKraken no resuelve bien: **comparar dos ramas lado a lado sin cambiarte de rama ni clonar el repo dos veces**.
+Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: historial con gráfico de ramas, preparar y commitear cambios (también por bloque o por línea) y diferencias con el visor de VS Code. Suma algo que GitKraken no resuelve bien: **comparar dos ramas lado a lado sin cambiarte de rama ni clonar el repo dos veces**.
 
 Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no necesita cuenta ni conexión a internet.
 
-## Qué hace hoy (v0.2)
+## Qué hace hoy (v0.3)
+
+### Cambios locales y commits
+
+- **Fila "// WIP"** arriba del gráfico con los cambios sin commitear, unida con línea punteada al commit actual.
+- **Panel de preparación** al elegirla:
+  - archivos sin preparar, preparados y con conflictos;
+  - preparar, quitar o descartar un archivo (o todos) con un clic. Los archivos nuevos que se descartan van a la papelera de reciclaje.
+- **Por bloque y por línea:** al abrir un archivo modificado se ven sus cambios por bloques.
+  - Cada bloque se puede preparar, quitar o descartar entero.
+  - Con clic (o Shift+clic para un rango) se eligen líneas sueltas, y los botones actúan solo sobre ellas.
+  - También se puede ver el archivo lado a lado contra el índice o contra el último commit.
+- **Commit** con resumen (con contador de 72 caracteres) y descripción, con **Ctrl+Enter**. Opción de **enmendar el último commit**: trae su mensaje para editarlo.
+- **Se actualiza sola:** detecta cambios en el disco (archivos editados, commits o ramas hechos desde la terminal) y refresca en menos de medio segundo.
+- Antes de descartar siempre pide confirmación.
 
 ### Historial
 
@@ -38,6 +52,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 **Atajos:**
 - En el historial: **↑ / ↓**, **RePág / AvPág**, **Inicio / Fin** para moverte por los commits, y **Esc** para volver del diff al historial.
+- En la caja de commit: **Ctrl+Enter** para hacer el commit.
 - En "Comparar ramas": **↑ / ↓** para pasar de un archivo a otro.
 
 ## Requisitos
@@ -73,7 +88,7 @@ npx electron-vite dev -- "C:\ruta\a\tu\repo"
 npm run dist
 ```
 
-Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.2.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
+Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.3.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
 
 - se instala solo para tu usuario, sin permisos de administrador, en `%LOCALAPPDATA%\Programs\GitOno`;
 - crea accesos directos en el escritorio y en el menú Inicio.
@@ -89,7 +104,7 @@ Para actualizar, volvé a correr `npm run dist` e instalá encima. Para desinsta
 ```
 src/
   main/             Proceso principal (Node): acá se ejecuta Git
-    git/            Núcleo Git: ramas, historial, comparación, lectura de archivos
+    git/            Núcleo Git: ramas, historial, comparación, cambios locales, vigilancia del disco
     providers/      Adaptadores por plataforma (GitHub, GitLab, ...)
     ipc.ts          Canales entre la interfaz y el proceso principal
   preload/          Puente seguro que expone window.gitono a la interfaz
@@ -97,7 +112,7 @@ src/
     src/views/      Pestañas: Historial y Comparar ramas
     src/components/ Gráfico, lista de commits, panel de ramas, detalle, visor de diferencias
     src/lib/        Lógica de la interfaz (gráfico, etiquetas, árbol, formatos, preferencias)
-  shared/           Tipos compartidos entre procesos
+  shared/           Tipos compartidos y armado de parches (patch.ts)
 build/              Ícono de la app
 docs/
   arquitectura.md   Cómo está armada la app y por qué

@@ -116,8 +116,8 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
     main = (
       <DiffView
         root={repo.root}
-        refA={refA}
-        refB={refB}
+        left={{ kind: 'ref', ref: refA }}
+        right={{ kind: 'ref', ref: refB }}
         labelA={labelFor(refA)}
         labelB={labelFor(refB)}
         change={selected}

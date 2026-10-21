@@ -1,7 +1,7 @@
 // Parsers de la salida de Git. Se usa siempre `-z` (separador NUL) para que las rutas
 // con espacios, tildes o caracteres raros lleguen tal cual, sin comillas ni escapes.
 
-import type { ChangeStatus, CommitDetails, CommitInfo, RefInfo } from '../../shared/types'
+import type { ChangeStatus, CommitDetails, CommitInfo, RefInfo, WorkingFile, WorkingTreeStatus } from '../../shared/types'
 
 export interface NameStatusEntry {
   status: ChangeStatus
@@ -140,4 +140,49 @@ export function parseCommitHeader(output: string): Omit<CommitDetails, 'files'> 
 /** Mismo criterio que usa Git: si hay un byte NUL al principio, es binario. */
 export function looksBinary(content: Buffer): boolean {
   return content.subarray(0, 8000).includes(0)
+}
+
+/**
+ * Parsea `git status --porcelain=v2 --branch -z`. Cada entrada empieza con su tipo:
+ *   "1 XY ... ruta"            cambio común
+ *   "2 XY ... ruta\0origen"    renombre o copia (preparado)
+ *   "u XY ... ruta"            conflicto de merge
+ *   "? ruta"                   archivo nuevo sin seguimiento
+ * X es el estado en el índice (preparado) e Y en la carpeta de trabajo; "." significa sin cambios.
+ */
+export function parseStatus(output: string): WorkingTreeStatus {
+  const status: WorkingTreeStatus = { head: null, branch: null, staged: [], unstaged: [], conflicted: [] }
+  const tokens = output.split('\0')
+  for (let i = 0; i < tokens.length; i++) {
+    const entry = tokens[i]
+    if (!entry) continue
+    if (entry.startsWith('# branch.oid ')) {
+      const oid = entry.slice('# branch.oid '.length)
+      status.head = oid === '(initial)' ? null : oid
+    } else if (entry.startsWith('# branch.head ')) {
+      const name = entry.slice('# branch.head '.length)
+      status.branch = name === '(detached)' ? null : name
+    } else if (entry.startsWith('1 ')) {
+      const fields = entry.split(' ')
+      addChange(status, fields[1], fields.slice(8).join(' '))
+    } else if (entry.startsWith('2 ')) {
+      const fields = entry.split(' ')
+      addChange(status, fields[1], fields.slice(9).join(' '), tokens[++i])
+    } else if (entry.startsWith('u ')) {
+      status.conflicted.push({ path: entry.split(' ').slice(10).join(' '), status: 'modified' })
+    } else if (entry.startsWith('? ')) {
+      status.unstaged.push({ path: entry.slice(2), status: 'added', untracked: true })
+    }
+  }
+  return status
+}
+
+function addChange(status: WorkingTreeStatus, xy: string, path: string, oldPath?: string): void {
+  const [inIndex, inWorktree] = xy
+  if (inIndex !== '.') {
+    const staged: WorkingFile = { path, status: STATUS_BY_LETTER[inIndex] ?? 'unknown' }
+    if (oldPath && (inIndex === 'R' || inIndex === 'C')) staged.oldPath = oldPath
+    status.staged.push(staged)
+  }
+  if (inWorktree !== '.') status.unstaged.push({ path, status: STATUS_BY_LETTER[inWorktree] ?? 'unknown' })
 }

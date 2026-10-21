@@ -24,8 +24,10 @@ export function App() {
   )
   const [error, setError] = useState<string | null>(null)
   const [fetching, setFetching] = useState(false)
-  // Las vistas vuelven a leer Git cuando cambia (por ejemplo, después de un fetch).
+  // Las vistas vuelven a leer Git cuando cambian: reloadKey para ramas e historial (fetch, commit),
+  // statusKey para la carpeta de trabajo (archivos editados).
   const [reloadKey, setReloadKey] = useState(0)
+  const [statusKey, setStatusKey] = useState(0)
   const [options, setOptions] = useState<DiffOptions>(() => loadSetting('diffOptions', DEFAULT_OPTIONS))
 
   useEffect(() => saveSetting('diffOptions', options), [options])
@@ -55,6 +57,31 @@ export function App() {
       if (path) await showRepo(await api.openRepo(path))
     })
   }, [run, showRepo])
+
+  /** Relee ramas e historial: después de un commit o cuando cambian las ramas en el disco. */
+  const reloadRepo = useCallback(() => {
+    if (!repo) return
+    api.listRefs(repo.root).then(setRefs, (e: Error) => setError(e.message))
+    setReloadKey((k) => k + 1)
+    setStatusKey((k) => k + 1)
+  }, [repo])
+
+  // La app se refresca sola cuando cambia algo en el repo (desde GitOno, la terminal o el editor).
+  useEffect(() => {
+    if (!repo) return
+    api.watchRepo(repo.root).catch((e: Error) => setError(e.message))
+    const stopListening = api.onRepoChanged((change) => {
+      if (change === 'refs') reloadRepo()
+      else setStatusKey((k) => k + 1)
+    })
+    // Al volver a la ventana también: por si algo cambió mientras no se miraba.
+    const onFocus = () => setStatusKey((k) => k + 1)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      stopListening()
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [repo, reloadRepo])
 
   const pickRepo = () =>
     run(async () => {
@@ -123,9 +150,11 @@ export function App() {
           repo={repo}
           refs={refs}
           reloadKey={reloadKey}
+          statusKey={statusKey}
           options={options}
           onOptionsChange={setOptions}
           onError={showError}
+          onRepoMutated={reloadRepo}
         />
       </div>
       <div className="view" hidden={view !== 'compare'}>

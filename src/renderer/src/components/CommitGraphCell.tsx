@@ -7,7 +7,11 @@ const MIDDLE = ROW_HEIGHT / 2
 // Colores de los carriles: tonos medios que se leen bien en tema claro y oscuro.
 const LANE_COLORS = ['#4c8df6', '#e5a50a', '#2fb67c', '#e5534b', '#a371f7', '#1fb5c9', '#f0659d', '#8d9db0']
 
-export const laneColor = (index: number): string => LANE_COLORS[index % LANE_COLORS.length]
+/** Gris para la fila de cambios sin commitear (carriles virtuales, color -1). */
+const VIRTUAL_LANE_COLOR = '#8d9db0'
+
+export const laneColor = (index: number): string =>
+  index < 0 ? VIRTUAL_LANE_COLOR : LANE_COLORS[index % LANE_COLORS.length]
 
 const laneX = (lane: number): number => lane * LANE_WIDTH + LANE_WIDTH / 2
 
@@ -24,21 +28,35 @@ interface Props {
   lanes: number
   isHead: boolean
   isMerge: boolean
+  /** Fila de cambios sin commitear: nodo hueco y punteado. */
+  isVirtual?: boolean
 }
 
-export function CommitGraphCell({ row, lanes, isHead, isMerge }: Props) {
+export function CommitGraphCell({ row, lanes, isHead, isMerge, isVirtual = false }: Props) {
   const x = laneX(row.column)
   const color = laneColor(row.color)
   return (
     <svg className="graph-cell" width={lanes * LANE_WIDTH} height={ROW_HEIGHT} aria-hidden>
       {row.top.map((line, i) => (
-        <path key={`t${i}`} d={segment(laneX(line.from), 0, laneX(line.to), MIDDLE)} stroke={laneColor(line.color)} />
+        <path
+          key={`t${i}`}
+          d={segment(laneX(line.from), 0, laneX(line.to), MIDDLE)}
+          stroke={laneColor(line.color)}
+          strokeDasharray={line.dashed ? '3 3' : undefined}
+        />
       ))}
       {row.bottom.map((line, i) => (
-        <path key={`b${i}`} d={segment(laneX(line.from), MIDDLE, laneX(line.to), ROW_HEIGHT)} stroke={laneColor(line.color)} />
+        <path
+          key={`b${i}`}
+          d={segment(laneX(line.from), MIDDLE, laneX(line.to), ROW_HEIGHT)}
+          stroke={laneColor(line.color)}
+          strokeDasharray={line.dashed ? '3 3' : undefined}
+        />
       ))}
       {isHead && <circle className="graph-cell__head" cx={x} cy={MIDDLE} r={8.5} stroke={color} />}
-      {isMerge ? (
+      {isVirtual ? (
+        <circle className="graph-cell__virtual" cx={x} cy={MIDDLE} r={6} stroke={color} />
+      ) : isMerge ? (
         <circle className="graph-cell__merge" cx={x} cy={MIDDLE} r={4} stroke={color} />
       ) : (
         <circle cx={x} cy={MIDDLE} r={5.5} fill={color} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { looksBinary, parseCommitHeader, parseLog, parseNameStatus, parseNumstat, parseRefs } from './parse'
+import { looksBinary, parseCommitHeader, parseLog, parseNameStatus, parseNumstat, parseRefs, parseStatus } from './parse'
 
 describe('parseNameStatus', () => {
   it('lee cambios simples, renombres y rutas con espacios', () => {
@@ -90,5 +90,32 @@ describe('looksBinary', () => {
   it('detecta bytes NUL', () => {
     expect(looksBinary(Buffer.from([0x89, 0x50, 0x00, 0x47]))).toBe(true)
     expect(looksBinary(Buffer.from('hola, mundo'))).toBe(false)
+  })
+})
+
+describe('parseStatus', () => {
+  it('lee conflictos, HEAD desacoplado y archivos modificados en los dos lados', () => {
+    const output = [
+      '# branch.oid abc123',
+      '# branch.head (detached)',
+      '1 MM N... 100644 100644 100644 h1 h2 con espacios.txt',
+      'u UU N... 100644 100644 100644 100644 h1 h2 h3 en conflicto.txt',
+      '? nuevo.txt',
+      ''
+    ].join('\0')
+    expect(parseStatus(output)).toEqual({
+      head: 'abc123',
+      branch: null,
+      staged: [{ path: 'con espacios.txt', status: 'modified' }],
+      unstaged: [
+        { path: 'con espacios.txt', status: 'modified' },
+        { path: 'nuevo.txt', status: 'added', untracked: true }
+      ],
+      conflicted: [{ path: 'en conflicto.txt', status: 'modified' }]
+    })
+  })
+
+  it('reconoce un repo sin commits', () => {
+    expect(parseStatus('# branch.oid (initial)\0# branch.head main\0')).toMatchObject({ head: null, branch: 'main' })
   })
 })

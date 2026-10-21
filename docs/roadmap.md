@@ -15,18 +15,19 @@ El objetivo es tener todo lo que ofrece GitKraken, gratis y sin cuenta, y sumar 
 - [x] Carga por tandas y lista virtualizada para repos grandes.
 - [x] Comparar ramas como pestaña aparte.
 
-## Etapa 2: Cambios locales
+## Etapa 2: Cambios locales ✅ (v0.3)
 
 Lo que GitKraken muestra arriba de todo como "WIP".
 
-- [ ] Fila de cambios sin commitear en el gráfico, con la cantidad de archivos.
-- [ ] Panel de preparación:
-  - [ ] archivos sin preparar y preparados;
-  - [ ] preparar o quitar por archivo, por bloque y por línea;
-  - [ ] descartar cambios.
-- [ ] Diff de la carpeta de trabajo contra el último commit.
-- [ ] Escribir el commit (resumen y descripción) y enmendar el último (amend).
-- [ ] Refresco automático al detectar cambios en el disco.
+- [x] Fila de cambios sin commitear en el gráfico, con la cantidad de archivos.
+- [x] Panel de preparación:
+  - [x] archivos sin preparar, preparados y con conflictos;
+  - [x] preparar o quitar por archivo, por bloque y por línea;
+  - [x] descartar cambios (los archivos nuevos van a la papelera).
+- [x] Diff de cada archivo: por bloques, o lado a lado contra el índice o el último commit.
+- [x] Escribir el commit (resumen y descripción) y enmendar el último (amend).
+- [x] Refresco automático al detectar cambios en el disco, también los hechos desde la terminal.
+- [ ] Preparar por línea en archivos nuevos, borrados o renombrados (hoy van enteros).
 
 ## Etapa 3: Operaciones
 

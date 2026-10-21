@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FileChange, FileContent } from '../../../shared/types'
+import type { FileChange, FileContent, FileSource } from '../../../shared/types'
 import { api } from '../api'
 import { STATUS_META } from '../lib/status'
 import { languageFor, monaco } from '../monaco'
@@ -12,14 +12,20 @@ export interface DiffOptions {
 
 interface Props {
   root: string
-  refA: string
-  refB: string
+  /** De dónde sale cada lado: un commit o rama, el índice o la carpeta de trabajo. */
+  left: FileSource
+  right: FileSource
   labelA: string
   labelB: string
-  change: FileChange
+  change: Pick<FileChange, 'status' | 'path' | 'oldPath'>
   options: DiffOptions
   onOptionsChange(options: DiffOptions): void
+  /** Si cambia, se vuelve a leer el archivo aunque sea el mismo (ej. se editó en el disco). */
+  reloadKey?: number
 }
+
+/** Clave estable de un origen, para no recargar cada vez que se crea un objeto nuevo igual. */
+const sourceKey = (source: FileSource): string => (source.kind === 'ref' ? `ref:${source.ref}` : source.kind)
 
 type LoadState =
   | { status: 'loading' }
@@ -34,7 +40,7 @@ function textOf(content: FileContent): string | null {
   return null
 }
 
-export function DiffView({ root, refA, refB, labelA, labelB, change, options, onOptionsChange }: Props) {
+export function DiffView({ root, left, right, labelA, labelB, change, options, onOptionsChange, reloadKey = 0 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
   const [state, setState] = useState<LoadState>({ status: 'loading' })
@@ -69,22 +75,25 @@ export function DiffView({ root, refA, refB, labelA, labelB, change, options, on
     })
   }, [options])
 
-  // Trae las dos versiones del archivo directo de Git, sin hacer checkout.
+  // Trae las dos versiones del archivo directo de Git (o del disco), sin hacer checkout.
+  const leftKey = sourceKey(left)
+  const rightKey = sourceKey(right)
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
     const leftPath = change.oldPath ?? change.path
     Promise.all([
-      change.status === 'added' ? MISSING : api.readFile(root, refA, leftPath),
-      change.status === 'deleted' ? MISSING : api.readFile(root, refB, change.path)
+      change.status === 'added' ? MISSING : api.readFile(root, left, leftPath),
+      change.status === 'deleted' ? MISSING : api.readFile(root, right, change.path)
     ]).then(
-      ([left, right]) => !cancelled && setState({ status: 'ready', left, right }),
+      ([leftContent, rightContent]) => !cancelled && setState({ status: 'ready', left: leftContent, right: rightContent }),
       (error: Error) => !cancelled && setState({ status: 'error', message: error.message })
     )
     return () => {
       cancelled = true
     }
-  }, [root, refA, refB, change])
+    // left y right se usan a través de sus claves, para no recargar con objetos nuevos iguales.
+  }, [root, leftKey, rightKey, change.path, change.oldPath, change.status, reloadKey])
 
   useEffect(() => {
     const editor = editorRef.current

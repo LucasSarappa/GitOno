@@ -150,8 +150,11 @@ export async function commitDetails(root: string, sha: string): Promise<CommitDe
 /** Lee un archivo tal como está guardado en `ref`, sin tocar la carpeta de trabajo. */
 export async function readFileAtRef(root: string, ref: string, path: string): Promise<FileContent> {
   assertSafeRef(ref)
-  const spec = `${ref}:${path}`
+  return readBlob(root, `${ref}:${path}`)
+}
 
+/** Lee un objeto de Git a partir de su especificación (ej. "main:src/app.ts" o ":src/app.ts" para el índice). */
+export async function readBlob(root: string, spec: string): Promise<FileContent> {
   let size: number
   try {
     size = Number((await gitText(root, ['cat-file', '-s', spec])).trim())

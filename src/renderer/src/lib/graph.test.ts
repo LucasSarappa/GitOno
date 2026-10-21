@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeGraph } from './graph'
+import { computeGraph, VIRTUAL_COLOR } from './graph'
 
 const c = (sha: string, ...parents: string[]) => ({ sha, parents })
 
@@ -69,5 +69,22 @@ describe('computeGraph', () => {
     const graph = computeGraph([c('B2', 'B1'), c('M', 'A1', 'B1'), c('B1', 'A1'), c('A1')])
     expect(graph.rows.map((r) => r.column)).toEqual([0, 1, 0, 0])
     expect(graph.rows[1].bottom).toContainEqual({ from: 1, to: 0, color: 0 })
+  })
+})
+
+describe('fila de cambios sin commitear (WIP)', () => {
+  it('se une con línea punteada al commit actual, que conserva un color propio', () => {
+    // WIP sobre B1, con otra rama (A2) más nueva arriba.
+    const graph = computeGraph([c('A2', 'A1'), { sha: 'wip', parents: ['B1'], virtual: true }, c('B1', 'A1'), c('A1')])
+    const [, wip, head] = graph.rows
+    expect(wip.color).toBe(VIRTUAL_COLOR)
+    expect(wip.bottom).toEqual([
+      { from: 0, to: 0, color: 0 },
+      { from: 1, to: 1, color: VIRTUAL_COLOR, dashed: true }
+    ])
+    expect(head.top).toContainEqual({ from: 1, to: 1, color: VIRTUAL_COLOR, dashed: true })
+    expect(head.color).not.toBe(VIRTUAL_COLOR)
+    // Debajo de HEAD la línea ya es normal.
+    expect(head.bottom.every((l) => !l.dashed)).toBe(true)
   })
 })

@@ -1,3 +1,4 @@
+import { CircleSlash } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react'
 import { wholeHunk, type FileDiff, type LineSelection } from '../../../shared/patch'
 import type { PatchAction, WorkingArea } from '../../../shared/types'
@@ -47,7 +48,7 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
 
   return (
     <div className="hunks">
-      <p className="hunks__hint muted small">
+      <p className="hunks__hint text-2 small">
         Clic en una línea agregada o borrada para elegirla (Shift+clic elige un rango). Los botones de cada bloque
         actúan sobre las líneas elegidas, o sobre el bloque entero si no elegiste ninguna.
       </p>
@@ -63,15 +64,15 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
               <div className="hunk__actions">
                 {area === 'unstaged' ? (
                   <>
-                    <button className="button button--small" disabled={busy} onClick={() => act('discard', h)}>
+                    <button className="btn btn--sm" disabled={busy} onClick={() => act('discard', h)}>
                       Descartar {what}
                     </button>
-                    <button className="button button--small button--accent" disabled={busy} onClick={() => act('stage', h)}>
+                    <button className="btn btn--sm btn--primary" disabled={busy} onClick={() => act('stage', h)}>
                       Preparar {what}
                     </button>
                   </>
                 ) : (
-                  <button className="button button--small" disabled={busy} onClick={() => act('unstage', h)}>
+                  <button className="btn btn--sm" disabled={busy} onClick={() => act('unstage', h)}>
                     Quitar {what}
                   </button>
                 )}
@@ -95,7 +96,7 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
                     <span className="hunk-line__text">{line.text.replace(/\r$/, '')}</span>
                     {line.noNewline && (
                       <span className="hunk-line__eol" title="Sin salto de línea al final del archivo">
-                        ⊘
+                        <CircleSlash size={11} strokeWidth={2} aria-label="Sin salto de línea al final" />
                       </span>
                     )}
                   </div>

@@ -1,11 +1,12 @@
+import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { buildPatch, parseFileDiff, type FileDiff, type LineSelection } from '../../../shared/patch'
 import type { FileSource, PatchAction, WorkingArea, WorkingFile } from '../../../shared/types'
 import { api } from '../api'
-import { STATUS_META } from '../lib/status'
 import { DiffView, type DiffOptions } from './DiffView'
 import { EmptyState } from './EmptyState'
 import { HunkView } from './HunkView'
+import { StatusBadge } from './StatusBadge'
 
 interface Props {
   root: string
@@ -94,18 +95,16 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
       ? [{ kind: 'ref', ref: 'HEAD' }, { kind: 'index' }, 'último commit', 'preparado']
       : [{ kind: 'index' }, { kind: 'worktree' }, 'preparado', 'carpeta de trabajo']
 
-  const meta = STATUS_META[file.status]
   const noChangesLeft = showHunks && diff !== null && diff.hunks.length === 0 && !diff.binary
 
   return (
     <div className="working-file">
-      <div className="history__back">
-        <button className="button button--small" onClick={onBack}>
-          ← Volver al historial
+      <div className="backbar">
+        <button className="btn btn--sm" onClick={onBack}>
+          <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
+          Volver al historial
         </button>
-        <span className={`status-badge status-badge--${meta.tone}`} title={file.untracked ? 'Archivo nuevo' : meta.label}>
-          {meta.symbol}
-        </span>
+        <StatusBadge status={file.status} title={file.untracked ? 'Archivo nuevo' : undefined} />
         <strong className="working-file__path" title={file.path}>
           {file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
         </strong>
@@ -113,25 +112,25 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
         <span className="working-file__spacer" />
         {canUseHunks && (
           <div className="segmented" role="tablist" aria-label="Modo de vista">
-            <button role="tab" aria-selected={mode === 'hunks'} className={mode === 'hunks' ? 'active' : ''} onClick={() => setMode('hunks')}>
+            <button role="tab" aria-selected={mode === 'hunks'} className={`segmented__item${mode === 'hunks' ? ' segmented__item--active' : ''}`} onClick={() => setMode('hunks')}>
               Bloques
             </button>
-            <button role="tab" aria-selected={mode === 'side'} className={mode === 'side' ? 'active' : ''} onClick={() => setMode('side')}>
+            <button role="tab" aria-selected={mode === 'side'} className={`segmented__item${mode === 'side' ? ' segmented__item--active' : ''}`} onClick={() => setMode('side')}>
               Comparar
             </button>
           </div>
         )}
         {area === 'unstaged' ? (
           <>
-            <button className="button button--small" disabled={busy} onClick={discardWhole}>
+            <button className="btn btn--sm" disabled={busy} onClick={discardWhole}>
               Descartar archivo
             </button>
-            <button className="button button--small button--accent" disabled={busy} onClick={stageWhole}>
+            <button className="btn btn--sm btn--primary" disabled={busy} onClick={stageWhole}>
               Preparar archivo
             </button>
           </>
         ) : (
-          <button className="button button--small" disabled={busy} onClick={unstageWhole}>
+          <button className="btn btn--sm" disabled={busy} onClick={unstageWhole}>
             Quitar archivo
           </button>
         )}

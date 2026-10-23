@@ -4,7 +4,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
   return (
     <div className="empty-state">
       <h2>{title}</h2>
-      {children && <p className="muted">{children}</p>}
+      {children && <p className="text-2">{children}</p>}
     </div>
   )
 }

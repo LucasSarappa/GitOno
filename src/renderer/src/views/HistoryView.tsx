@@ -1,5 +1,7 @@
+import { ArrowDown, ArrowLeft, ArrowUp, Search } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type {
+  BranchInsight,
   CommitDetails as Details,
   CommitInfo,
   CommitPage,
@@ -12,7 +14,8 @@ import type {
 } from '../../../shared/types'
 import { api } from '../api'
 import { CommitDetails } from '../components/CommitDetails'
-import { CommitList, WIP_SHA, type ScrollRequest, type WipSummary } from '../components/CommitList'
+import { BranchInsightCard } from '../components/BranchInsightCard'
+import { CommitList, WIP_SHA, type LineageMarker, type LineageView, type ScrollRequest, type WipSummary } from '../components/CommitList'
 import { DiffView, type DiffOptions } from '../components/DiffView'
 import { EmptyState } from '../components/EmptyState'
 import { RefsPanel } from '../components/RefsPanel'
@@ -45,9 +48,12 @@ interface Props {
   onError(message: string): void
   /** Se llama después de un commit: hay que releer ramas e historial. */
   onRepoMutated(): void
+  /** Abre la vista Comparar con dos referencias ya elegidas. */
+  onCompare(refA: string, refB: string): void
 }
 
-export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptionsChange, onError, onRepoMutated }: Props) {
+export function HistoryView(props: Props) {
+  const { repo, refs, reloadKey, statusKey, options, onOptionsChange, onError, onRepoMutated, onCompare } = props
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [page, setPage] = useState<CommitPage | null>(null)
   const [loading, setLoading] = useState(false)
@@ -62,6 +68,9 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
   const [statusVersion, setStatusVersion] = useState(0)
   const [statusNonce, setStatusNonce] = useState(0)
   const [draft, setDraft] = useState<CommitDraft>(EMPTY_DRAFT)
+  // Rama elegida para ver su linaje (de dónde sale, sus commits y dónde se mergeó).
+  const [lineageRef, setLineageRef] = useState<string | null>(null)
+  const [insight, setInsight] = useState<BranchInsight | null>(null)
   const nonce = useRef(0)
   // Commit recién creado: se centra en la lista apenas aparezca.
   const scrollWhenLoaded = useRef<string | null>(null)
@@ -250,41 +259,103 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
     onRepoMutated()
   }
 
+  // Linaje de la rama elegida: se vuelve a calcular si cambian las ramas (fetch, commit…).
+  useEffect(() => {
+    if (!lineageRef) return
+    let cancelled = false
+    api.branchInsight(repo.root, lineageRef).then(
+      (result) => !cancelled && setInsight(result),
+      (error: Error) => {
+        if (cancelled) return
+        setLineageRef(null)
+        onError(error.message)
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [repo.root, lineageRef, reloadKey, onError])
+
+  const selectBranch = (ref: string) => {
+    if (ref === lineageRef) {
+      setLineageRef(null)
+      return
+    }
+    setInsight(null)
+    setLineageRef(ref)
+    const tip = refs.refs.find((r) => r.ref === ref)?.target
+    if (tip) selectCommit(tip, 'center')
+  }
+  const selectBranchByName = (name: string) => {
+    const ref = refs.refs.find((r) => r.name === name)
+    if (ref) selectBranch(ref.ref)
+  }
+
+  // Esc deja de resaltar la rama (si hay un archivo abierto, primero se cierra ese).
+  useEffect(() => {
+    if (!lineageRef || open) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (e.key === 'Escape' && !target?.closest('input, textarea')) setLineageRef(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lineageRef, open])
+
+  const lineage = useMemo((): LineageView | null => {
+    if (!lineageRef || !insight || insight.ref !== lineageRef) return null
+    const highlight = new Set<string>([insight.tip, ...insight.ownCommits])
+    const markers = new Map<string, LineageMarker>()
+    const base = insight.base?.name ?? 'la rama principal'
+    if (insight.forkPoint && !insight.isBase) {
+      highlight.add(insight.forkPoint)
+      markers.set(insight.forkPoint, { kind: 'fork', text: `${insight.name} nace acá` })
+    }
+    if (insight.merge?.kind === 'merge-commit') {
+      highlight.add(insight.merge.sha)
+      markers.set(insight.merge.sha, { kind: 'merge', text: `mergeada en ${base}` })
+    }
+    return { highlight, markers }
+  }, [lineageRef, insight])
+
   const workingOpen = open?.kind === 'working' ? open : null
 
   return (
     <div className="history">
-      <RefsPanel refs={refs} onSelectRef={(ref) => selectCommit(ref.target, 'center')} />
+      <RefsPanel refs={refs} selectedRef={lineageRef} onSelectRef={(ref) => selectBranch(ref.ref)} />
 
-      <section className="history__center">
+      <section className="panel glass history__center">
         <div className="history__toolbar" hidden={open !== null}>
-          <input
-            className="filter history__search"
-            type="search"
-            placeholder="Buscar por mensaje, autor o SHA…  (Enter: siguiente)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={onSearchKeyDown}
-          />
+          <label className="field field--search history__search">
+            <Search size={14} strokeWidth={1.75} aria-hidden />
+            <input
+              type="search"
+              placeholder="Buscar por mensaje, autor o SHA"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              aria-label="Buscar commits"
+            />
+          </label>
           {matches && (
             <>
-              <span className="muted small history__matches">
+              <span className="history__matches text-2 small" aria-live="polite">
                 {matchList.length === 0 ? 'Sin resultados' : `${matchPosition || '–'} de ${matchList.length}`}
               </span>
-              <button className="icon-button" title="Anterior (Shift+Enter)" onClick={() => goToMatch(-1)}>
-                ↑
+              <button className="btn btn--icon btn--ghost" aria-label="Coincidencia anterior" title="Anterior (Shift+Enter)" onClick={() => goToMatch(-1)}>
+                <ArrowUp size={15} strokeWidth={1.75} />
               </button>
-              <button className="icon-button" title="Siguiente (Enter)" onClick={() => goToMatch(1)}>
-                ↓
+              <button className="btn btn--icon btn--ghost" aria-label="Coincidencia siguiente" title="Siguiente (Enter)" onClick={() => goToMatch(1)}>
+                <ArrowDown size={15} strokeWidth={1.75} />
               </button>
             </>
           )}
-          <span className="muted small history__count">
+          <span className="history__count text-2 small">
             {loading ? 'Cargando…' : `${commits.length.toLocaleString('es-AR')} commits`}
             {page?.hasMore && !loading && (
               <>
                 {' · '}
-                <button className="link-button" onClick={loadMore}>
+                <button className="link" onClick={loadMore}>
                   cargar más
                 </button>
               </>
@@ -292,11 +363,23 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
           </span>
         </div>
 
+        {lineageRef && open === null && (
+          <BranchInsightCard
+            name={refs.refs.find((r) => r.ref === lineageRef)?.name ?? lineageRef}
+            insight={insight?.ref === lineageRef ? insight : null}
+            onGoTo={(sha) => selectCommit(sha, 'center')}
+            onCompare={onCompare}
+            onClose={() => setLineageRef(null)}
+          />
+        )}
+
         <div className="history__list" hidden={open !== null}>
           {page === null ? (
             <EmptyState title="Cargando historial…" />
           ) : rows.length === 0 ? (
-            <EmptyState title="Este repositorio todavía no tiene commits" />
+            <EmptyState title="Este repositorio todavía no tiene commits">
+              Hacé el primer commit desde la terminal o el editor y va a aparecer acá.
+            </EmptyState>
           ) : (
             <CommitList
               commits={rows}
@@ -305,9 +388,12 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
               head={refs.head}
               selectedSha={selectedSha}
               matches={matches}
+              lineage={lineage}
+              selectedRef={lineageRef}
               scrollRequest={scrollRequest}
               wip={wip}
               onSelect={(sha, viaKeyboard) => selectCommit(sha, viaKeyboard ? 'nearest' : null)}
+              onSelectRef={selectBranch}
               onNearEnd={loadMore}
             />
           )}
@@ -315,11 +401,14 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
 
         {open?.kind === 'commit' && (
           <div className="history__diff">
-            <div className="history__back">
-              <button className="button button--small" onClick={() => setOpen(null)}>
-                ← Volver al historial
+            <div className="backbar">
+              <button className="btn btn--sm" onClick={() => setOpen(null)}>
+                <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
+                Volver al historial
               </button>
-              <span className="muted small">Commit {shortSha(open.sha)} · Esc para volver</span>
+              <span className="text-2 small">
+                Commit <code>{shortSha(open.sha)}</code> · Esc para volver
+              </span>
             </div>
             <DiffView
               root={repo.root}
@@ -351,7 +440,7 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
         )}
       </section>
 
-      <aside className="history__details" aria-label="Detalle">
+      <aside className="panel glass history__details" aria-label="Detalle">
         {selectedSha === WIP_SHA && status ? (
           <WorkingTreePanel
             root={repo.root}
@@ -371,9 +460,10 @@ export function HistoryView({ repo, refs, reloadKey, statusKey, options, onOptio
             selectedPath={open?.kind === 'commit' ? open.change.path : null}
             onOpenFile={openFileFromDetails}
             onSelectCommit={(sha) => selectCommit(sha, 'center')}
+            onSelectBranch={selectBranchByName}
           />
         ) : (
-          <div className="details details--empty muted">Elegí un commit para ver su detalle.</div>
+          <div className="details details--empty text-2">Elegí un commit para ver su detalle.</div>
         )}
       </aside>
     </div>

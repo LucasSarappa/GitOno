@@ -1,5 +1,7 @@
+import { ChevronRight, Folder } from 'lucide-react'
 import type { FileChange } from '../../../shared/types'
 import { STATUS_META } from '../lib/status'
+import { StatusBadge } from './StatusBadge'
 import type { TreeNode } from '../lib/tree'
 
 interface Props {
@@ -27,9 +29,8 @@ function TreeLevel({ nodes, depth, ...props }: Props & { depth: number }) {
       return (
         <li key={`d:${node.path}`} role="treeitem" aria-expanded={open}>
           <button className="tree__row tree__row--folder" style={indent} onClick={() => props.onToggleFolder(node.path)}>
-            <span className={`tree__chevron${open ? ' tree__chevron--open' : ''}`} aria-hidden>
-              ›
-            </span>
+            <ChevronRight size={13} strokeWidth={2} className={`chevron${open ? ' chevron--open' : ''}`} aria-hidden />
+            <Folder size={13} strokeWidth={1.75} aria-hidden />
             <span className="tree__name">{node.name}</span>
           </button>
           {open && (
@@ -54,9 +55,7 @@ function TreeLevel({ nodes, depth, ...props }: Props & { depth: number }) {
           data-path={change.path}
           onClick={() => props.onSelect(change)}
         >
-          <span className={`status-badge status-badge--${meta.tone}`} aria-label={meta.label}>
-            {meta.symbol}
-          </span>
+          <StatusBadge status={change.status} />
           <span className={`tree__name${change.status === 'deleted' ? ' tree__name--deleted' : ''}`}>{node.name}</span>
           <LineCounts change={change} />
         </button>

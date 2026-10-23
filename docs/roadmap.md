@@ -29,6 +29,17 @@ Lo que GitKraken muestra arriba de todo como "WIP".
 - [x] Refresco automático al detectar cambios en el disco, también los hechos desde la terminal.
 - [ ] Preparar por línea en archivos nuevos, borrados o renombrados (hoy van enteros).
 
+## Interfaz y claridad de ramas ✅ (v0.4)
+
+- [x] Rediseño completo, "Ono, vidrio cálido": tema claro, oscuro o del sistema; efecto vidrio que se puede apagar; íconos reales. Documentado en `DESIGN.md`.
+- [x] Logo de Ono, el caniche que le da nombre a la app.
+- [x] Varios repos abiertos en pestañas, con atajos y repos recientes.
+- [x] Fotos de los autores (GitHub y Gravatar), que se pueden desactivar.
+- [x] Linaje de cada rama: de dónde sale, en qué commit nace, desde dónde se creó, commits propios y dónde se mergeó, resaltado en el gráfico.
+- [x] Columna de ramas y tags a la izquierda del gráfico, unida a cada commit, como en GitKraken.
+- [x] "Comparar con main" desde el linaje de una rama.
+- [ ] Probar la barra de título propia en macOS y la fila de pestañas en Linux.
+
 ## Etapa 3: Operaciones
 
 - [ ] Checkout de ramas (doble clic) y de commits.
@@ -49,7 +60,6 @@ Lo que GitKraken muestra arriba de todo como "WIP".
 - [ ] Rebase interactivo visual: reordenar, unir (squash), editar y descartar commits.
 - [ ] Historial de un archivo y blame (quién cambió cada línea).
 - [ ] Submódulos, worktrees y Git LFS.
-- [ ] Varias pestañas con distintos repos abiertos a la vez.
 - [ ] Paleta de comandos (Ctrl+P) y atajos configurables.
 
 ## Etapa 5: Plataformas (GitHub, GitLab y otras)

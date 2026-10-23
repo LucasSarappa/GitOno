@@ -1,192 +1,168 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ProviderInfo, RefList, RepoInfo } from '../../shared/types'
+import type { RepoInfo } from '../../shared/types'
 import { api } from './api'
-import type { DiffOptions } from './components/DiffView'
+import { TitleBar } from './components/TitleBar'
 import { Welcome } from './components/Welcome'
+import { AppearanceProvider } from './lib/appearance'
+import { rememberRecent } from './lib/recent'
 import { loadSetting, saveSetting } from './lib/settings'
-import { CompareView } from './views/CompareView'
-import { HistoryView } from './views/HistoryView'
+import { RepoWorkspace } from './views/RepoWorkspace'
 
-type View = 'history' | 'compare'
+interface Tab {
+  id: string
+  /** null: pestaña nueva, todavía sin repo. */
+  repo: RepoInfo | null
+}
 
-const VIEWS: { id: View; label: string }[] = [
-  { id: 'history', label: 'Historial' },
-  { id: 'compare', label: 'Comparar ramas' }
-]
-
-const DEFAULT_OPTIONS: DiffOptions = { sideBySide: true, ignoreWhitespace: false, hideUnchanged: true }
+const newTab = (repo: RepoInfo | null = null): Tab => ({ id: crypto.randomUUID(), repo })
 
 export function App() {
-  const [repo, setRepo] = useState<RepoInfo | null>(null)
-  const [refs, setRefs] = useState<RefList | null>(null)
-  const [view, setView] = useState<View>(() =>
-    loadSetting<string>('view', 'history') === 'compare' ? 'compare' : 'history'
-  )
-  const [error, setError] = useState<string | null>(null)
-  const [fetching, setFetching] = useState(false)
-  // Las vistas vuelven a leer Git cuando cambian: reloadKey para ramas e historial (fetch, commit),
-  // statusKey para la carpeta de trabajo (archivos editados).
-  const [reloadKey, setReloadKey] = useState(0)
-  const [statusKey, setStatusKey] = useState(0)
-  const [options, setOptions] = useState<DiffOptions>(() => loadSetting('diffOptions', DEFAULT_OPTIONS))
-
-  useEffect(() => saveSetting('diffOptions', options), [options])
-  useEffect(() => saveSetting('view', view), [view])
-
-  const showError = useCallback((message: string) => setError(message), [])
-
-  const run = useCallback(async (task: () => Promise<void>) => {
-    try {
-      setError(null)
-      await task()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }, [])
-
-  const showRepo = useCallback(async (info: RepoInfo) => {
-    const list = await api.listRefs(info.root)
-    setRepo(info)
-    setRefs(list)
-  }, [])
-
-  // Si la app se abrió con una carpeta como argumento, se abre ese repo directamente.
-  useEffect(() => {
-    void run(async () => {
-      const path = await api.initialRepoPath()
-      if (path) await showRepo(await api.openRepo(path))
-    })
-  }, [run, showRepo])
-
-  /** Relee ramas e historial: después de un commit o cuando cambian las ramas en el disco. */
-  const reloadRepo = useCallback(() => {
-    if (!repo) return
-    api.listRefs(repo.root).then(setRefs, (e: Error) => setError(e.message))
-    setReloadKey((k) => k + 1)
-    setStatusKey((k) => k + 1)
-  }, [repo])
-
-  // La app se refresca sola cuando cambia algo en el repo (desde GitOno, la terminal o el editor).
-  useEffect(() => {
-    if (!repo) return
-    api.watchRepo(repo.root).catch((e: Error) => setError(e.message))
-    const stopListening = api.onRepoChanged((change) => {
-      if (change === 'refs') reloadRepo()
-      else setStatusKey((k) => k + 1)
-    })
-    // Al volver a la ventana también: por si algo cambió mientras no se miraba.
-    const onFocus = () => setStatusKey((k) => k + 1)
-    window.addEventListener('focus', onFocus)
-    return () => {
-      stopListening()
-      window.removeEventListener('focus', onFocus)
-    }
-  }, [repo, reloadRepo])
-
-  const pickRepo = () =>
-    run(async () => {
-      const info = await api.pickRepo()
-      if (info) await showRepo(info)
-    })
-
-  const fetchAll = () =>
-    repo &&
-    run(async () => {
-      setFetching(true)
-      try {
-        await api.fetchAll(repo.root)
-        setRefs(await api.listRefs(repo.root))
-        setReloadKey((k) => k + 1)
-      } finally {
-        setFetching(false)
-      }
-    })
-
-  if (!repo || !refs) return <Welcome onOpen={pickRepo} error={error} />
-
   return (
-    <div className="app">
-      <header className="toolbar">
-        <div className="toolbar__repo">
-          <span className="brand">GitOno</span>
-          <button className="repo-button" onClick={pickRepo} title={`${repo.root}\nClic para abrir otro repositorio`}>
-            <span className="repo-button__name">{repo.name}</span>
-            <ProviderBadge repo={repo} />
-          </button>
-        </div>
-        <nav className="tabs" role="tablist" aria-label="Vistas">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              role="tab"
-              aria-selected={view === v.id}
-              className={`tab${view === v.id ? ' tab--active' : ''}`}
-              onClick={() => setView(v.id)}
-            >
-              {v.label}
-            </button>
-          ))}
-        </nav>
-        <div className="toolbar__end">
-          <button className="button" onClick={fetchAll} disabled={fetching} title="Trae las ramas nuevas del servidor (git fetch)">
-            {fetching ? 'Actualizando…' : 'Actualizar ramas'}
-          </button>
-        </div>
-      </header>
-
-      {error && (
-        <div className="error-banner" role="alert">
-          <span>{error}</span>
-          <button className="icon-button" title="Cerrar" onClick={() => setError(null)}>
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Las dos vistas quedan montadas para no perder lo que estabas mirando al cambiar de pestaña. */}
-      <div className="view" hidden={view !== 'history'}>
-        <HistoryView
-          key={repo.root}
-          repo={repo}
-          refs={refs}
-          reloadKey={reloadKey}
-          statusKey={statusKey}
-          options={options}
-          onOptionsChange={setOptions}
-          onError={showError}
-          onRepoMutated={reloadRepo}
-        />
-      </div>
-      <div className="view" hidden={view !== 'compare'}>
-        <CompareView
-          key={repo.root}
-          repo={repo}
-          refs={refs}
-          reloadKey={reloadKey}
-          options={options}
-          onOptionsChange={setOptions}
-          onError={showError}
-        />
-      </div>
-    </div>
+    <AppearanceProvider>
+      <Shell />
+    </AppearanceProvider>
   )
 }
 
-function ProviderBadge({ repo }: { repo: RepoInfo }) {
-  const provider: ProviderInfo | null = repo.provider
-  if (!provider) {
-    // Un remoto que es una carpeta (otro clon en el disco) no tiene plataforma.
-    return repo.remoteUrl ? (
-      <span className="provider-badge" title={repo.remoteUrl}>
-        Remoto local
-      </span>
-    ) : (
-      <span className="provider-badge">Sin remoto</span>
+function Shell() {
+  const [tabs, setTabs] = useState<Tab[]>(() => [newTab()])
+  const [activeId, setActiveId] = useState(() => tabs[0].id)
+  const [restored, setRestored] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Al abrir: las pestañas de la última vez, más la carpeta pasada por línea de comandos.
+  useEffect(() => {
+    void (async () => {
+      const saved = loadSetting<string[]>('openTabs', [])
+      const initial = await api.initialRepoPath().catch(() => null)
+      const paths = [...new Set([...saved, ...(initial ? [initial] : [])])]
+      const opened: Tab[] = []
+      for (const path of paths) {
+        try {
+          const info = await api.openRepo(path)
+          // La misma carpeta puede llegar escrita distinto (C:\x y C:/x): se compara por la raíz de Git.
+          if (!opened.some((t) => t.repo?.root === info.root)) opened.push(newTab(info))
+          rememberRecent(info.root, info.name)
+        } catch {
+          // La carpeta ya no existe o dejó de ser un repo: se omite.
+        }
+      }
+      if (opened.length > 0) {
+        const wanted = initial ? await api.openRepo(initial).then((r) => r.root, () => '') : loadSetting('activeTab', '')
+        setTabs(opened)
+        setActiveId((opened.find((t) => t.repo?.root === wanted) ?? opened[0]).id)
+      }
+      setRestored(true)
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (!restored) return
+    saveSetting(
+      'openTabs',
+      tabs.flatMap((t) => (t.repo ? [t.repo.root] : []))
     )
+    saveSetting('activeTab', tabs.find((t) => t.id === activeId)?.repo?.root ?? '')
+  }, [tabs, activeId, restored])
+
+  /** Abre un repo en la pestaña activa (si está vacía) o en una nueva. Si ya está abierto, va a esa pestaña. */
+  const showRepo = useCallback(
+    (info: RepoInfo) => {
+      rememberRecent(info.root, info.name)
+      setError(null)
+      const existing = tabs.find((t) => t.repo?.root === info.root)
+      if (existing) {
+        setActiveId(existing.id)
+        return
+      }
+      const active = tabs.find((t) => t.id === activeId)
+      if (active && !active.repo) {
+        setTabs((prev) => prev.map((t) => (t.id === active.id ? { ...t, repo: info } : t)))
+      } else {
+        const tab = newTab(info)
+        setTabs((prev) => [...prev, tab])
+        setActiveId(tab.id)
+      }
+    },
+    [tabs, activeId]
+  )
+
+  const pickRepo = useCallback(async () => {
+    try {
+      const info = await api.pickRepo()
+      if (info) showRepo(info)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [showRepo])
+
+  const openPath = async (path: string) => {
+    try {
+      showRepo(await api.openRepo(path))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
+
+  const addTab = useCallback(() => {
+    const tab = newTab()
+    setTabs((prev) => [...prev, tab])
+    setActiveId(tab.id)
+  }, [])
+
+  const closeTab = useCallback(
+    (id: string) => {
+      const index = tabs.findIndex((t) => t.id === id)
+      const rest = tabs.filter((t) => t.id !== id)
+      if (rest.length === 0) {
+        const tab = newTab()
+        setTabs([tab])
+        setActiveId(tab.id)
+        return
+      }
+      setTabs(rest)
+      if (id === activeId) setActiveId(rest[Math.min(index, rest.length - 1)].id)
+    },
+    [tabs, activeId]
+  )
+
+  // Atajos de pestañas, como en el navegador.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      const key = e.key.toLowerCase()
+      if (key === 't') addTab()
+      else if (key === 'w') closeTab(activeId)
+      else if (key === 'o') void pickRepo()
+      else if (e.key === 'Tab') {
+        const index = tabs.findIndex((t) => t.id === activeId)
+        const next = (index + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length
+        setActiveId(tabs[next].id)
+      } else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tabs, activeId, addTab, closeTab, pickRepo])
+
   return (
-    <span className={`provider-badge provider-badge--${provider.id}`} title={`${provider.host}/${provider.repoPath}`}>
-      {provider.name}
-    </span>
+    <div className="app" data-platform={api.platform}>
+      <TitleBar
+        tabs={tabs.map((t) => ({ id: t.id, title: t.repo?.name ?? 'Nueva pestaña', path: t.repo?.root ?? '' }))}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={closeTab}
+        onNew={addTab}
+      />
+      {tabs.map((tab) => (
+        <div key={tab.id} className="tab-page" hidden={tab.id !== activeId}>
+          {tab.repo ? (
+            <RepoWorkspace repo={tab.repo} active={tab.id === activeId} />
+          ) : (
+            <Welcome onOpen={pickRepo} onOpenPath={openPath} error={tab.id === activeId ? error : null} />
+          )}
+        </div>
+      ))}
+    </div>
   )
 }

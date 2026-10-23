@@ -8,6 +8,7 @@ export function loadSetting<T>(key: string, fallback: T): T {
     const raw = localStorage.getItem(PREFIX + key)
     if (raw === null) return fallback
     const saved: unknown = JSON.parse(raw)
+    if (Array.isArray(fallback)) return (Array.isArray(saved) ? saved : fallback) as T
     if (typeof fallback === 'object' && fallback !== null) {
       // Se combina con el valor por defecto para que una opción nueva no quede vacía.
       return typeof saved === 'object' && saved !== null ? { ...fallback, ...saved } : fallback

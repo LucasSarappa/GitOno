@@ -4,6 +4,102 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-23 — Sesión 3: rediseño, pestañas, avatares y linaje de ramas (v0.4)
+
+### Qué se hizo
+
+- **Rediseño completo, "Ono, vidrio cálido":**
+  - paleta crema, damasco y caramelo en claro, y cacao en oscuro;
+  - tema claro, oscuro o el del sistema;
+  - paneles de vidrio esmerilado que se pueden apagar;
+  - íconos reales (Lucide) en lugar de caracteres sueltos.
+
+  Sigue la organización de GitKraken: pestañas arriba, ramas a la izquierda, gráfico al centro y detalle a la derecha. El sistema quedó documentado en `DESIGN.md`, y el producto en `PRODUCT.md`.
+- **Logo de Ono,** el caniche toy del autor, dibujado a partir de tres fotos: crema y damasco, rulos, orejas caídas, ojos marrón oscuro y nariz rosada. Hay una versión detallada (bienvenida y README) y una simplificada (barra de título e ícono de la app).
+- **Pestañas de repos** (`App.tsx` + `views/RepoWorkspace.tsx`):
+  - barra de título propia con las pestañas;
+  - atajos Ctrl+T, Ctrl+W, Ctrl+Tab y Ctrl+O;
+  - las pestañas se recuerdan al cerrar la app;
+  - la pestaña nueva muestra los repos recientes.
+
+  La vigilancia del disco ahora es por repo.
+- **Fotos de los autores** (`main/avatars.ts`): emails privados de GitHub, API pública de GitHub y Gravatar, con caché en disco. Se pueden desactivar.
+- **Linaje de ramas** (`main/git/branches.ts`, `BranchInsightCard`): al elegir una rama, el gráfico resalta sus commits y marca dónde nace y dónde se mergeó. Una tarjeta dice:
+  - de qué rama sale y en qué commit;
+  - desde dónde se creó;
+  - cuántos commits propios tiene y cuántos le faltan;
+  - con qué commit se mergeó, o si fue por avance rápido.
+
+  Desde ahí se la compara con la principal.
+- **Historial:**
+  - columna propia para ramas y tags a la izquierda del gráfico, unida a cada commit con el color de su carril;
+  - el detalle de un merge dice qué rama entró en cuál (`lib/merge.ts`) y en qué ramas está cada commit.
+- Monaco con temas propios, claro y oscuro.
+- Versión 0.4.0.
+
+### Decisiones
+
+- **Vidrio hecho con CSS** (`backdrop-filter`), sin Mica (Windows) ni vibrancy (macOS): tiene que verse igual en Windows, macOS y Linux. Se apaga desde Apariencia, o solo si el sistema pide menos transparencia; sin vidrio, los paneles quedan sólidos.
+- **Barra de título:**
+  - Windows: los botones nativos sobre la barra propia (`titleBarOverlay`), con los colores del tema;
+  - macOS: los semáforos dentro de la barra;
+  - Linux: la barra del sistema.
+- **Oscuro cacao, no el azul marino de GitKraken:** la paleta sale del pelaje de Ono, para que la app tenga identidad propia.
+- **Logo generado por código** (`build/logo/ono.mjs`): un SVG con los rulos procedurales (semilla fija) y la cara dibujada a mano. Escala a cualquier tamaño y se puede ajustar y regenerar. `build/icon.png` sale de renderizar `ono-mark.svg` con Electron.
+- **Avatares resueltos en el proceso principal:**
+  - la interfaz recibe solo URLs que cargan;
+  - la caché evita repetir pedidos entre sesiones;
+  - la política de seguridad solo admite imágenes de GitHub y Gravatar.
+
+  Gravatar se consulta con un pedido HEAD, porque pedir la imagen directo llenaba la consola de errores 404 por cada autor sin foto.
+- **Linaje:**
+  - el origen usa `merge-base --fork-point`, que sigue el reflog de la principal y acierta aunque la principal se haya rebasado, con el ancestro común como respaldo;
+  - "creada desde" sale del reflog, que es local, así que en un clon nuevo no aparece y la tarjeta muestra solo lo que se sabe.
+- **El menú de Apariencia se dibuja en un portal:** el desenfoque de la barra crea una capa propia que lo dejaba debajo de los paneles.
+- **Columnas del historial:** con la ventana angosta se ocultan SHA, Fecha y Autor antes que cortar el mensaje.
+- **Skill Impeccable:**
+  - instalada para todos los proyectos en `~/.claude/skills/impeccable`, versión del commit `5cb95ee`;
+  - solo las instrucciones (markdown), sin scripts ni binarios;
+  - por eso su comando `impeccable context` no corrió, y se leyeron `PRODUCT.md` y `DESIGN.md` directamente;
+  - la revisión final se hizo en el mismo hilo, porque los agentes de revisión que trae la skill no están instalados.
+
+### Cómo se probó
+
+- **107 tests automáticos** (antes 85). Los nuevos:
+  - el linaje contra repos reales: mergeada, por avance rápido, sin mergear, recién creada y la principal;
+  - las ramas que contienen un commit;
+  - avatares, con la red simulada;
+  - lectura de mensajes de merge.
+- Typecheck y build sin errores.
+- **Prueba en la app real**, manejada por el protocolo de depuración de Chrome, con una carpeta de datos aparte para no tocar la configuración del usuario. Se tomaron capturas en claro, oscuro y con el vidrio apagado de:
+  - el linaje de `feature/login` (mergeada) y `hotfix/iva` (sin mergear) en un repo de prueba;
+  - el menú de Apariencia;
+  - pestañas, bienvenida y recientes;
+  - el repo de GitOno, con 8 fotos de GitHub;
+  - el panel WIP con la vista por bloques;
+  - "Comparar con main";
+  - la ventana a 1000 px.
+
+  La consola quedó sin errores.
+
+### Problemas encontrados y cómo se resolvieron
+
+- **Logo:** el primer boceto parecía un perro genérico. Se corrigieron las proporciones del hocico y la separación de los ojos, comparando con las fotos.
+- **"Created from HEAD":** si la rama se crea sin decir desde dónde (`git checkout -b` o `git branch` a secas), su reflog solo dice HEAD, y el test fallaba. Ahora se cruza con el reflog de HEAD para saber en qué rama estaba parado el repo.
+- **Pestaña duplicada al arrancar:** el mismo repo aparecía como `C:\...` y como `C:/...`. Ahora se compara por la carpeta raíz que devuelve Git.
+- **Repos restaurados:** no aparecían en recientes; ahora se agregan al restaurarlos.
+- **`loadSetting`:** convertía en objeto un valor guardado que tenía que ser una lista.
+- **Etiqueta de la rama actual:** el borde hecho con sombra parecía un par de corchetes; se cambió por un contorno separado.
+- **Mensaje del commit muy angosto:** se ajustaron los anchos de las columnas y los paneles laterales, y se agregó la ocultación de columnas.
+
+### Pendiente
+
+- Probar en macOS y Linux. La barra de título de cada uno no se pudo ver, y en Windows los botones nativos no salen en las capturas.
+- Fotos de los autores en repos de GitLab: por ahora, solo Gravatar.
+- Etapa 3 de la hoja de ruta: operaciones (checkout, ramas, pull/push, merge, rebase, stash, menú contextual).
+
+---
+
 ## 2026-10-21 — Sesión 2 (continuación): cambios locales y commits (v0.3)
 
 ### Qué se hizo

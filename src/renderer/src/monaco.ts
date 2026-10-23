@@ -41,23 +41,52 @@ monaco.css.cssDefaults.setOptions({ validate: false })
 monaco.css.scssDefaults.setOptions({ validate: false })
 monaco.css.lessDefaults.setOptions({ validate: false })
 
+// Temas del editor con la paleta de la app (styles.css): crema en claro, cacao en oscuro.
 monaco.editor.defineTheme('gitono-light', {
   base: 'vs',
   inherit: true,
   rules: [],
-  colors: { 'editor.background': '#ffffff' }
+  colors: {
+    'editor.background': '#fbf7f2',
+    'editorGutter.background': '#fbf7f2',
+    'editorLineNumber.foreground': '#a8968a',
+    'editorLineNumber.activeForeground': '#66544a',
+    'editor.selectionBackground': '#e9c79f80',
+    'editor.lineHighlightBackground': '#f3ebe2',
+    'diffEditor.insertedLineBackground': '#2f8a5714',
+    'diffEditor.insertedTextBackground': '#2f8a5733',
+    'diffEditor.removedLineBackground': '#c2453a14',
+    'diffEditor.removedTextBackground': '#c2453a33',
+    'diffEditor.diagonalFill': '#d9c8b866',
+    'scrollbarSlider.background': '#5438241f',
+    'scrollbarSlider.hoverBackground': '#54382438'
+  }
 })
 monaco.editor.defineTheme('gitono-dark', {
   base: 'vs-dark',
   inherit: true,
   rules: [],
-  colors: { 'editor.background': '#1b1d21' }
+  colors: {
+    'editor.background': '#211a16',
+    'editorGutter.background': '#211a16',
+    'editorLineNumber.foreground': '#7d6a5c',
+    'editorLineNumber.activeForeground': '#c4b2a3',
+    'editor.selectionBackground': '#e2a26a40',
+    'editor.lineHighlightBackground': '#2a221d',
+    'diffEditor.insertedLineBackground': '#63c58f14',
+    'diffEditor.insertedTextBackground': '#63c58f30',
+    'diffEditor.removedLineBackground': '#f0786c14',
+    'diffEditor.removedTextBackground': '#f0786c30',
+    'diffEditor.diagonalFill': '#3a2e2666',
+    'scrollbarSlider.background': '#ffe4c81f',
+    'scrollbarSlider.hoverBackground': '#ffe4c838'
+  }
 })
 
-const darkScheme = window.matchMedia('(prefers-color-scheme: dark)')
-const applyTheme = (): void => monaco.editor.setTheme(darkScheme.matches ? 'gitono-dark' : 'gitono-light')
-applyTheme()
-darkScheme.addEventListener('change', applyTheme)
+/** Tema del editor según el tema de la app (lo llama lib/appearance.tsx). */
+export function setMonacoTheme(dark: boolean): void {
+  monaco.editor.setTheme(dark ? 'gitono-dark' : 'gitono-light')
+}
 
 /** Elige el resaltado de sintaxis según el nombre o la extensión del archivo. */
 export function languageFor(path: string): string {

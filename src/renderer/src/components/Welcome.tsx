@@ -1,21 +1,64 @@
+import { FolderGit2, FolderOpen, X } from 'lucide-react'
+import { useState } from 'react'
+import onoFull from '../assets/ono.svg'
+import { forgetRecent, loadRecent } from '../lib/recent'
+
 interface Props {
   onOpen(): void
+  onOpenPath(path: string): void
   error: string | null
 }
 
-export function Welcome({ onOpen, error }: Props) {
+/** Pestaña nueva: abrir un repo o volver a uno reciente. */
+export function Welcome({ onOpen, onOpenPath, error }: Props) {
+  const [recent, setRecent] = useState(loadRecent)
+
   return (
     <div className="welcome">
-      <div className="welcome__card">
+      <div className="welcome__panel glass">
+        <img className="welcome__logo" src={onoFull} alt="Ono, el caniche que le da nombre a GitOno" draggable={false} />
         <h1 className="welcome__title">GitOno</h1>
-        <p>Compará dos ramas de un repositorio lado a lado, sin cambiarte de rama ni clonarlo dos veces.</p>
-        <button className="button button--primary" onClick={onOpen}>
-          Abrir repositorio…
-        </button>
-        <p className="muted small">
-          Elegí la carpeta de un repo que ya tengas clonado. Funciona con GitHub, GitLab o cualquier servidor Git.
-        </p>
-        {error && <p className="error-text">{error}</p>}
+        <p className="welcome__lead">Historial, ramas y commits de tus repositorios Git. Gratis y sin cuenta.</p>
+        <div className="welcome__actions">
+          <button className="btn btn--primary btn--lg" onClick={onOpen}>
+            <FolderOpen size={16} strokeWidth={1.75} aria-hidden />
+            Abrir repositorio…
+          </button>
+          <kbd>Ctrl+O</kbd>
+        </div>
+        {error && (
+          <p className="welcome__error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {recent.length > 0 && (
+          <section className="welcome__recent" aria-labelledby="recientes">
+            <h2 id="recientes">Recientes</h2>
+            <ul>
+              {recent.map((repo) => (
+                <li key={repo.root} className="recent">
+                  <button className="recent__open" onClick={() => onOpenPath(repo.root)} title={repo.root}>
+                    <FolderGit2 size={15} strokeWidth={1.75} aria-hidden />
+                    <span className="recent__name">{repo.name}</span>
+                    <span className="recent__path">{repo.root}</span>
+                  </button>
+                  <button
+                    className="btn btn--icon btn--ghost recent__forget"
+                    aria-label={`Quitar ${repo.name} de recientes`}
+                    title="Quitar de recientes"
+                    onClick={() => {
+                      forgetRecent(repo.root)
+                      setRecent(loadRecent())
+                    }}
+                  >
+                    <X size={14} strokeWidth={1.75} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   )

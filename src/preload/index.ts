@@ -27,13 +27,21 @@ const api: GitOnoApi = {
   commit: (root, message, amend) => call(IPC.commit, root, message, amend),
   lastCommitMessage: (root) => call(IPC.lastCommitMessage, root),
 
+  branchInsight: (root, ref) => call(IPC.branchInsight, root, ref),
+  branchesContaining: (root, sha) => call(IPC.branchesContaining, root, sha),
+  resolveAvatars: (root, emails, provider) => call(IPC.resolveAvatars, root, emails, provider),
+
   confirm: (options) => call(IPC.confirm, options),
   watchRepo: (root) => call(IPC.watchRepo, root),
+  unwatchRepo: (root) => call(IPC.unwatchRepo, root),
   onRepoChanged: (listener) => {
-    const handler = (_event: IpcRendererEvent, change: RepoChange) => listener(change)
+    const handler = (_event: IpcRendererEvent, root: string, change: RepoChange) => listener(root, change)
     ipcRenderer.on(IPC.repoChanged, handler)
     return () => ipcRenderer.removeListener(IPC.repoChanged, handler)
-  }
+  },
+
+  platform: process.platform,
+  setAppearance: (appearance) => call(IPC.setAppearance, appearance)
 }
 
 contextBridge.exposeInMainWorld('gitono', api)

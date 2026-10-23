@@ -89,6 +89,28 @@ export interface RepoInfo {
   provider: ProviderInfo | null
 }
 
+/** Linaje de una rama: de dónde sale, qué commits son suyos y dónde se mergeó. */
+export interface BranchInsight {
+  ref: string
+  name: string
+  kind: RefKind
+  tip: string
+  /** Rama principal contra la que se mide (ej. main), o null si el repo no tiene una reconocible. */
+  base: { ref: string; name: string } | null
+  /** Es la rama principal (o su copia remota). */
+  isBase: boolean
+  /** Commit donde la rama salió de la principal. */
+  forkPoint: string | null
+  /** Commits propios, del más nuevo al más viejo (como máximo 2000; el total va en ownCount). */
+  ownCommits: string[]
+  ownCount: number
+  /** Commits de la principal que esta rama no tiene. */
+  behind: number
+  merge: { kind: 'merge-commit'; sha: string; subject: string } | { kind: 'fast-forward' } | null
+  /** Del reflog: desde dónde se creó y cuándo (solo ramas locales y mientras Git guarde el dato). */
+  created: { from: string; date: number } | null
+}
+
 /** Un archivo con cambios sin commitear. */
 export interface WorkingFile {
   path: string
@@ -167,12 +189,33 @@ export interface GitOnoApi {
   commit(root: string, message: string, amend: boolean): Promise<string>
   lastCommitMessage(root: string): Promise<string>
 
-  /** Pregunta con un cuadro de diálogo de Windows. Devuelve true si el usuario confirma. */
+  // Ramas
+  branchInsight(root: string, ref: string): Promise<BranchInsight>
+  branchesContaining(root: string, sha: string): Promise<string[]>
+
+  /** URL del avatar de cada email (GitHub, si se puede; si no, Gravatar). */
+  resolveAvatars(root: string, emails: string[], provider: ProviderInfo | null): Promise<Record<string, string>>
+
+  /** Pregunta con un cuadro de diálogo del sistema. Devuelve true si el usuario confirma. */
   confirm(options: ConfirmOptions): Promise<boolean>
-  /** Empieza a vigilar el repo; los cambios llegan por `onRepoChanged`. */
+  /** Empieza a vigilar un repo (puede haber varios abiertos); los cambios llegan por `onRepoChanged`. */
   watchRepo(root: string): Promise<void>
-  /** Avisa cuando cambia algo en el repo. Devuelve una función para dejar de escuchar. */
-  onRepoChanged(listener: (change: RepoChange) => void): () => void
+  unwatchRepo(root: string): Promise<void>
+  /** Avisa cuando cambia algo en un repo vigilado. Devuelve una función para dejar de escuchar. */
+  onRepoChanged(listener: (root: string, change: RepoChange) => void): () => void
+
+  /** Sistema operativo: decide cómo se dibuja la barra de título. */
+  platform: 'win32' | 'darwin' | 'linux' | string
+  /** Aplica el tema elegido a las partes nativas (diálogos, barra de título). */
+  setAppearance(appearance: NativeAppearance): Promise<void>
+}
+
+export type ThemeChoice = 'system' | 'light' | 'dark'
+
+export interface NativeAppearance {
+  theme: ThemeChoice
+  /** Colores de la barra de título nativa (botones de minimizar, maximizar y cerrar). */
+  titleBar: { color: string; symbolColor: string }
 }
 
 export const IPC = {
@@ -193,8 +236,13 @@ export const IPC = {
   applyPatch: 'git:apply-patch',
   commit: 'git:commit',
   lastCommitMessage: 'git:last-commit-message',
+  branchInsight: 'git:branch-insight',
+  branchesContaining: 'git:branches-containing',
+  resolveAvatars: 'avatars:resolve',
   confirm: 'ui:confirm',
+  setAppearance: 'ui:set-appearance',
   watchRepo: 'repo:watch',
+  unwatchRepo: 'repo:unwatch',
   /** Evento del proceso principal hacia la interfaz (no es un pedido). */
   repoChanged: 'repo:changed'
 } as const

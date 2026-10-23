@@ -1,17 +1,13 @@
 import type { GraphRow } from '../lib/graph'
 
 export const LANE_WIDTH = 16
-export const ROW_HEIGHT = 30
+export const ROW_HEIGHT = 32
 const MIDDLE = ROW_HEIGHT / 2
+/** Cantidad de colores de carril definidos en styles.css (--lane-0 … --lane-7). */
+const LANE_COUNT = 8
 
-// Colores de los carriles: tonos medios que se leen bien en tema claro y oscuro.
-const LANE_COLORS = ['#4c8df6', '#e5a50a', '#2fb67c', '#e5534b', '#a371f7', '#1fb5c9', '#f0659d', '#8d9db0']
-
-/** Gris para la fila de cambios sin commitear (carriles virtuales, color -1). */
-const VIRTUAL_LANE_COLOR = '#8d9db0'
-
-export const laneColor = (index: number): string =>
-  index < 0 ? VIRTUAL_LANE_COLOR : LANE_COLORS[index % LANE_COLORS.length]
+/** Color de un carril, tomado del tema (claro u oscuro). El -1 es el carril gris de WIP. */
+export const laneColor = (index: number): string => (index < 0 ? 'var(--lane-wip)' : `var(--lane-${index % LANE_COUNT})`)
 
 const laneX = (lane: number): number => lane * LANE_WIDTH + LANE_WIDTH / 2
 
@@ -30,18 +26,23 @@ interface Props {
   isMerge: boolean
   /** Fila de cambios sin commitear: nodo hueco y punteado. */
   isVirtual?: boolean
+  /** El commit tiene etiquetas de rama o tag: se une con una línea a la columna de etiquetas. */
+  hasRefs?: boolean
+  /** Es parte del linaje de la rama elegida. */
+  emphasized?: boolean
 }
 
-export function CommitGraphCell({ row, lanes, isHead, isMerge, isVirtual = false }: Props) {
+export function CommitGraphCell({ row, lanes, isHead, isMerge, isVirtual = false, hasRefs = false, emphasized = false }: Props) {
   const x = laneX(row.column)
   const color = laneColor(row.color)
   return (
-    <svg className="graph-cell" width={lanes * LANE_WIDTH} height={ROW_HEIGHT} aria-hidden>
+    <svg className={`graph-cell${emphasized ? ' graph-cell--emphasized' : ''}`} width={lanes * LANE_WIDTH} height={ROW_HEIGHT} aria-hidden>
+      {hasRefs && <path className="graph-cell__connector" d={`M0 ${MIDDLE}H${x - 6}`} style={{ stroke: color }} />}
       {row.top.map((line, i) => (
         <path
           key={`t${i}`}
           d={segment(laneX(line.from), 0, laneX(line.to), MIDDLE)}
-          stroke={laneColor(line.color)}
+          style={{ stroke: laneColor(line.color) }}
           strokeDasharray={line.dashed ? '3 3' : undefined}
         />
       ))}
@@ -49,17 +50,17 @@ export function CommitGraphCell({ row, lanes, isHead, isMerge, isVirtual = false
         <path
           key={`b${i}`}
           d={segment(laneX(line.from), MIDDLE, laneX(line.to), ROW_HEIGHT)}
-          stroke={laneColor(line.color)}
+          style={{ stroke: laneColor(line.color) }}
           strokeDasharray={line.dashed ? '3 3' : undefined}
         />
       ))}
-      {isHead && <circle className="graph-cell__head" cx={x} cy={MIDDLE} r={8.5} stroke={color} />}
+      {(isHead || emphasized) && <circle className="graph-cell__halo" cx={x} cy={MIDDLE} r={9} style={{ stroke: color }} />}
       {isVirtual ? (
-        <circle className="graph-cell__virtual" cx={x} cy={MIDDLE} r={6} stroke={color} />
+        <circle className="graph-cell__virtual" cx={x} cy={MIDDLE} r={6} style={{ stroke: color }} />
       ) : isMerge ? (
-        <circle className="graph-cell__merge" cx={x} cy={MIDDLE} r={4} stroke={color} />
+        <circle className="graph-cell__merge" cx={x} cy={MIDDLE} r={4.5} style={{ stroke: color }} />
       ) : (
-        <circle cx={x} cy={MIDDLE} r={5.5} fill={color} />
+        <circle className="graph-cell__node" cx={x} cy={MIDDLE} r={5.5} style={{ fill: color }} />
       )}
     </svg>
   )

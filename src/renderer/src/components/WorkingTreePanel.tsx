@@ -1,7 +1,8 @@
-import { useState, type KeyboardEvent } from 'react'
+import { Minus, Plus, Undo2 } from 'lucide-react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { WorkingArea, WorkingFile, WorkingTreeStatus } from '../../../shared/types'
 import { api } from '../api'
-import { STATUS_META } from '../lib/status'
+import { StatusBadge } from './StatusBadge'
 
 export interface CommitDraft {
   summary: string
@@ -105,7 +106,7 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
     <div className="wip-panel">
       <div className="wip-panel__header">
         <h2 className="details__subject">Cambios sin commitear</h2>
-        <div className="muted small">
+        <div className="text-2 small">
           {total} {total === 1 ? 'archivo' : 'archivos'} en {status.branch ? <strong>{status.branch}</strong> : 'HEAD desacoplado'}
         </div>
       </div>
@@ -119,7 +120,7 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
             note="Resolvé los conflictos en tu editor y después marcá cada archivo como resuelto."
             isSelected={() => false}
             onOpen={() => undefined}
-            actions={[{ label: 'Marcar resuelto', title: 'Preparar el archivo (git add)', run: (f) => stage([f]) }]}
+            actions={[{ label: 'Marcar resuelto', icon: <Plus size={14} strokeWidth={2} />, title: 'Marcar como resuelto (preparar)', run: (f) => stage([f]) }]}
             busy={busy}
           />
         )}
@@ -132,8 +133,8 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
             { label: 'Preparar todo', run: () => stage(status.unstaged), accent: true }
           ]}
           actions={[
-            { label: '↺', title: 'Descartar cambios', run: (f) => discard([f]) },
-            { label: '+', title: 'Preparar', run: (f) => stage([f]), accent: true }
+            { label: 'Descartar', icon: <Undo2 size={14} strokeWidth={1.75} />, title: 'Descartar cambios', run: (f) => discard([f]) },
+            { label: 'Preparar', icon: <Plus size={14} strokeWidth={2} />, title: 'Preparar', run: (f) => stage([f]), accent: true }
           ]}
           isSelected={(f) => isSelected(f, 'unstaged')}
           onOpen={(f) => onOpenFile(f, 'unstaged')}
@@ -144,7 +145,7 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
           files={status.staged}
           area="staged"
           headerActions={[{ label: 'Quitar todo', run: () => unstage(status.staged) }]}
-          actions={[{ label: '−', title: 'Quitar del commit', run: (f) => unstage([f]) }]}
+          actions={[{ label: 'Quitar', icon: <Minus size={14} strokeWidth={2} />, title: 'Quitar del commit', run: (f) => unstage([f]) }]}
           isSelected={(f) => isSelected(f, 'staged')}
           onOpen={(f) => onOpenFile(f, 'staged')}
           busy={busy}
@@ -154,7 +155,7 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
       <div className="commit-box" onKeyDown={onCommitKeyDown}>
         <div className="commit-box__summary">
           <input
-            className="filter"
+            className="field"
             placeholder="Resumen del commit (obligatorio)"
             value={draft.summary}
             onChange={(e) => onDraftChange({ ...draft, summary: e.target.value })}
@@ -168,7 +169,7 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
           </span>
         </div>
         <textarea
-          className="filter commit-box__description"
+          className="field commit-box__description"
           placeholder="Descripción (opcional)"
           value={draft.description}
           onChange={(e) => onDraftChange({ ...draft, description: e.target.value })}
@@ -179,15 +180,15 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
           <input type="checkbox" checked={draft.amend} onChange={(e) => void setAmend(e.target.checked)} disabled={!status.head} />
           Enmendar el último commit
         </label>
-        <button className="button button--primary commit-box__button" disabled={!canCommit} onClick={doCommit} title="Ctrl+Enter">
+        <button className="btn btn--primary btn--lg commit-box__button" disabled={!canCommit} onClick={doCommit} title="Ctrl+Enter">
           {draft.amend
             ? 'Enmendar commit'
             : `Hacer commit${status.staged.length > 0 ? ` de ${status.staged.length} ${status.staged.length === 1 ? 'archivo' : 'archivos'}` : ''}`}
         </button>
         {status.conflicted.length > 0 ? (
-          <p className="muted small">Hay conflictos sin resolver: resolvelos antes de hacer commit.</p>
+          <p className="text-2 small">Hay conflictos sin resolver: resolvelos antes de hacer commit.</p>
         ) : status.staged.length === 0 && !draft.amend ? (
-          <p className="muted small">Prepará al menos un archivo para poder hacer commit.</p>
+          <p className="text-2 small">Prepará al menos un archivo para poder hacer commit.</p>
         ) : null}
       </div>
     </div>
@@ -196,6 +197,8 @@ export function WorkingTreePanel({ root, status, openFile, draft, onDraftChange,
 
 interface Action {
   label: string
+  /** En las acciones de cada archivo se muestra solo el ícono (el texto queda para lectores de pantalla). */
+  icon?: ReactNode
   title?: string
   accent?: boolean
 }
@@ -216,14 +219,14 @@ function FileSection({ title, files, note, headerActions = [], actions, isSelect
   return (
     <section className="wip-section">
       <header className="wip-section__header">
-        <span className="refs-panel__title">
-          {title} <span className="refs-panel__count">({files.length})</span>
+        <span className="wip-section__title">
+          {title} <span className="wip-section__count">{files.length}</span>
         </span>
         {files.length > 0 &&
           headerActions.map((action) => (
             <button
               key={action.label}
-              className={`button button--small${action.accent ? ' button--accent' : ''}`}
+              className={`btn btn--sm${action.accent ? ' btn--primary' : ''}`}
               disabled={busy}
               onClick={action.run}
             >
@@ -231,23 +234,17 @@ function FileSection({ title, files, note, headerActions = [], actions, isSelect
             </button>
           ))}
       </header>
-      {note && <p className="wip-section__note muted small">{note}</p>}
+      {note && <p className="wip-section__note text-2 small">{note}</p>}
       {files.length === 0 ? (
-        <p className="wip-section__empty muted small">Ninguno</p>
+        <p className="wip-section__empty text-2 small">Ninguno</p>
       ) : (
         <ul className="wip-files">
           {files.map((file) => {
-            const meta = STATUS_META[file.status]
             const slash = file.path.lastIndexOf('/')
             return (
               <li key={file.path} className={`wip-file${isSelected(file) ? ' wip-file--selected' : ''}`}>
                 <button className="wip-file__open" onClick={() => onOpen(file)} title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}>
-                  <span
-                    className={`status-badge status-badge--${file.untracked ? 'added' : meta.tone}`}
-                    title={file.untracked ? 'Archivo nuevo (sin seguimiento)' : meta.label}
-                  >
-                    {meta.symbol}
-                  </span>
+                  <StatusBadge status={file.status} title={file.untracked ? 'Archivo nuevo (sin seguimiento)' : undefined} />
                   <span className="wip-file__name">{file.path.slice(slash + 1)}</span>
                   {slash > 0 && <span className="wip-file__dir">{file.path.slice(0, slash)}</span>}
                 </button>
@@ -255,13 +252,13 @@ function FileSection({ title, files, note, headerActions = [], actions, isSelect
                   {actions.map((action) => (
                     <button
                       key={action.label}
-                      className={`icon-button icon-button--small${action.accent ? ' icon-button--accent' : ''}`}
+                      className={`btn btn--icon btn--sm btn--ghost${action.accent ? ' btn--accent-icon' : ''}`}
                       title={action.title}
                       aria-label={`${action.title ?? action.label}: ${file.path}`}
                       disabled={busy}
                       onClick={() => action.run(file)}
                     >
-                      {action.label}
+                      {action.icon ?? action.label}
                     </button>
                   ))}
                 </span>

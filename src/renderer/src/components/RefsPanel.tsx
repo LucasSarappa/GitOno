@@ -1,3 +1,4 @@
+import { Check, ChevronRight, Cloud, Laptop, Search, Tag } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { RefInfo, RefList } from '../../../shared/types'
 import { splitRemoteName } from '../lib/refs'
@@ -5,6 +6,7 @@ import { splitRemoteName } from '../lib/refs'
 interface Section {
   id: string
   title: string
+  Icon: typeof Laptop
   refs: RefInfo[]
   /** Texto a mostrar por cada referencia (en remotas, sin el nombre del remoto). */
   display(ref: RefInfo): string
@@ -14,11 +16,13 @@ const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
 
 interface Props {
   refs: RefList
+  /** Rama cuyo linaje se está mostrando. */
+  selectedRef: string | null
   onSelectRef(ref: RefInfo): void
 }
 
-/** Panel izquierdo del historial: ramas locales, remotas agrupadas por remoto y tags. */
-export function RefsPanel({ refs, onSelectRef }: Props) {
+/** Panel izquierdo del historial, como en GitKraken: ramas locales, remotas por remoto y tags. */
+export function RefsPanel({ refs, selectedRef, onSelectRef }: Props) {
   const [filter, setFilter] = useState('')
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
 
@@ -35,14 +39,15 @@ export function RefsPanel({ refs, onSelectRef }: Props) {
     }
 
     return [
-      { id: 'local', title: 'Ramas locales', refs: matching.filter((r) => r.kind === 'local'), display: (r) => r.name },
+      { id: 'local', title: 'Locales', Icon: Laptop, refs: matching.filter((r) => r.kind === 'local'), display: (r) => r.name },
       ...[...remotes].map(([remote, list]) => ({
         id: `remote:${remote}`,
-        title: `Remoto: ${remote}`,
+        title: remote,
+        Icon: Cloud,
         refs: list,
         display: (r: RefInfo) => splitRemoteName(r.name).branch
       })),
-      { id: 'tags', title: 'Tags', refs: matching.filter((r) => r.kind === 'tag'), display: (r) => r.name }
+      { id: 'tags', title: 'Tags', Icon: Tag, refs: matching.filter((r) => r.kind === 'tag'), display: (r) => r.name }
     ]
   }, [refs, filter])
 
@@ -55,42 +60,40 @@ export function RefsPanel({ refs, onSelectRef }: Props) {
     })
 
   return (
-    <aside className="refs-panel" aria-label="Ramas y tags">
-      <input
-        className="filter"
-        type="search"
-        placeholder="Filtrar ramas y tags…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+    <aside className="panel glass refs-panel" aria-label="Ramas y tags">
+      <label className="field field--search refs-panel__filter">
+        <Search size={14} strokeWidth={1.75} aria-hidden />
+        <input type="search" placeholder="Filtrar ramas y tags" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      </label>
       <div className="refs-panel__scroll">
         {sections.map((section) => {
           const open = !closed.has(section.id)
           return (
-            <section key={section.id}>
-              <button className="refs-panel__section" onClick={() => toggle(section.id)} aria-expanded={open}>
-                <span className={`tree__chevron${open ? ' tree__chevron--open' : ''}`} aria-hidden>
-                  ›
-                </span>
-                <span className="refs-panel__title">{section.title}</span>
-                <span className="refs-panel__count">{section.refs.length}</span>
+            <section key={section.id} className="refs-section">
+              <button className="refs-section__header" onClick={() => toggle(section.id)} aria-expanded={open}>
+                <ChevronRight size={13} strokeWidth={2} className={`chevron${open ? ' chevron--open' : ''}`} aria-hidden />
+                <section.Icon size={13} strokeWidth={1.75} aria-hidden />
+                <span className="refs-section__title">{section.title}</span>
+                <span className="refs-section__count">{section.refs.length}</span>
               </button>
               {open && (
                 <ul>
-                  {section.refs.length === 0 && <li className="refs-panel__empty muted small">Ninguna</li>}
+                  {section.refs.length === 0 && <li className="refs-section__empty">Ninguna</li>}
                   {section.refs.map((ref) => {
                     const current = ref.ref === refs.current
+                    const selected = ref.ref === selectedRef
                     return (
                       <li key={ref.ref}>
                         <button
-                          className={`refs-panel__item${current ? ' refs-panel__item--current' : ''}`}
-                          title={current ? `${ref.name} (rama actual)` : ref.name}
+                          className={`ref-item${current ? ' ref-item--current' : ''}${selected ? ' ref-item--selected' : ''}`}
+                          title={current ? `${ref.name} (rama actual) · ver de dónde sale` : `${ref.name} · ver de dónde sale`}
+                          aria-pressed={selected}
                           onClick={() => onSelectRef(ref)}
                         >
-                          <span className="refs-panel__marker" aria-hidden>
-                            {current ? '✓' : section.id === 'tags' ? '◆' : ''}
+                          <span className="ref-item__marker" aria-hidden>
+                            {current && <Check size={13} strokeWidth={2.5} />}
                           </span>
-                          <span className="refs-panel__name">{section.display(ref)}</span>
+                          <span className="ref-item__name">{section.display(ref)}</span>
                         </button>
                       </li>
                     )

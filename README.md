@@ -1,10 +1,44 @@
+<p align="center"><img src="build/logo/ono.svg" width="128" alt="Ono, el caniche toy que le da nombre a GitOno"></p>
+
 # GitOno
 
-Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: historial con gráfico de ramas, preparar y commitear cambios (también por bloque o por línea) y diferencias con el visor de VS Code. Suma algo que GitKraken no resuelve bien: **comparar dos ramas lado a lado sin cambiarte de rama ni clonar el repo dos veces**.
+Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: varios repos en pestañas, historial con gráfico de ramas, preparar y commitear cambios (también por bloque o por línea) y diferencias con el visor de VS Code. Suma dos cosas que GitKraken no resuelve bien:
+- **Comparar dos ramas lado a lado** sin cambiarte de rama ni clonar el repo dos veces.
+- **El linaje de cada rama:** de dónde sale, en qué commit nace, desde dónde se creó y dónde y con qué commit se mergeó.
 
-Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no necesita cuenta ni conexión a internet.
+Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no necesita cuenta. El nombre viene de **Ono**, el caniche toy del autor: es el logo de la app.
 
-## Qué hace hoy (v0.3)
+## Qué hace hoy (v0.4)
+
+### Interfaz
+
+- **Varios repos a la vez, en pestañas**, como en GitKraken:
+  - **+** abre una pestaña nueva; **Ctrl+T**, **Ctrl+W** y **Ctrl+Tab** la abren, la cierran y pasan a la siguiente; **Ctrl+O** abre un repo;
+  - el clic con la rueda cierra una pestaña;
+  - las pestañas se recuerdan al cerrar la app;
+  - la pestaña nueva muestra los repos recientes.
+- **Tema claro, oscuro o el del sistema**, y **efecto vidrio**: paneles translúcidos con desenfoque. Se apaga si preferís paneles sólidos, y se apaga solo si el sistema pide menos transparencia. Todo está en el botón de **Apariencia** (paleta).
+- **Fotos de los autores**, como en GitKraken:
+  - en repos de GitHub, con la API pública;
+  - para los emails privados de GitHub, directo desde el email;
+  - para el resto, con Gravatar;
+  - sin foto, se muestran las iniciales.
+
+  Se pueden desactivar en Apariencia, y entonces la app no hace ningún pedido a internet.
+- Diseño propio, "Ono, vidrio cálido": paleta crema, damasco y caramelo (cacao en oscuro). Está documentado en [DESIGN.md](DESIGN.md).
+
+### Linaje de las ramas
+
+- Al elegir una rama (en el panel izquierdo, en su etiqueta del gráfico o en "En ramas" del detalle de un commit), el gráfico **resalta sus commits y atenúa el resto**.
+- El gráfico marca **"nace acá"** en el commit donde salió y **"mergeada en main"** en el merge.
+- Una tarjeta resume el linaje:
+  - de qué rama sale y en qué commit;
+  - desde dónde se creó (según el reflog);
+  - cuántos commits propios tiene y cuántos le faltan de la principal;
+  - si se mergeó: con commit de merge (con enlace) o por avance rápido;
+  - un botón para **compararla con la principal**.
+- Las etiquetas de ramas y tags están en una **columna propia a la izquierda del gráfico**, unidas a su commit con una línea del color de la rama. La rama actual lleva ✓. Una rama local y su remota en el mismo commit se ven juntas, con los íconos de computadora y nube.
+- El detalle de un merge dice **qué rama se mergeó en cuál**, leyendo el mensaje. Entiende los formatos de Git, GitHub y GitLab.
 
 ### Cambios locales y commits
 
@@ -46,12 +80,12 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 ### General
 
-- Botón **Actualizar ramas** (`git fetch --all --prune`) para traer las novedades del servidor.
+- Botón **Actualizar** (`git fetch --all --prune`) para traer las novedades del servidor.
 - Detecta si el repo es de GitHub, GitLab u otro servidor.
-- Tema claro u oscuro según la configuración de Windows.
 
 **Atajos:**
-- En el historial: **↑ / ↓**, **RePág / AvPág**, **Inicio / Fin** para moverte por los commits, y **Esc** para volver del diff al historial.
+- Pestañas: **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** / **Ctrl+Shift+Tab** y **Ctrl+O**.
+- En el historial: **↑ / ↓**, **RePág / AvPág**, **Inicio / Fin** para moverte por los commits, y **Esc** para volver del diff o dejar de resaltar una rama.
 - En la caja de commit: **Ctrl+Enter** para hacer el commit.
 - En "Comparar ramas": **↑ / ↓** para pasar de un archivo a otro.
 
@@ -88,7 +122,7 @@ npx electron-vite dev -- "C:\ruta\a\tu\repo"
 npm run dist
 ```
 
-Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.3.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
+Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.4.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
 
 - se instala solo para tu usuario, sin permisos de administrador, en `%LOCALAPPDATA%\Programs\GitOno`;
 - crea accesos directos en el escritorio y en el menú Inicio.
@@ -104,16 +138,20 @@ Para actualizar, volvé a correr `npm run dist` e instalá encima. Para desinsta
 ```
 src/
   main/             Proceso principal (Node): acá se ejecuta Git
-    git/            Núcleo Git: ramas, historial, comparación, cambios locales, vigilancia del disco
+    git/            Núcleo Git: ramas, linaje, historial, comparación, cambios locales, vigilancia del disco
     providers/      Adaptadores por plataforma (GitHub, GitLab, ...)
+    avatars.ts      Fotos de los autores (GitHub, Gravatar) con caché
     ipc.ts          Canales entre la interfaz y el proceso principal
   preload/          Puente seguro que expone window.gitono a la interfaz
   renderer/         Interfaz (React)
-    src/views/      Pestañas: Historial y Comparar ramas
+    src/views/      Espacio de cada repo (RepoWorkspace), Historial y Comparar ramas
+    src/assets/     Logo de Ono
     src/components/ Gráfico, lista de commits, panel de ramas, detalle, visor de diferencias
     src/lib/        Lógica de la interfaz (gráfico, etiquetas, árbol, formatos, preferencias)
   shared/           Tipos compartidos y armado de parches (patch.ts)
-build/              Ícono de la app
+build/              Ícono de la app y generador del logo (build/logo/ono.mjs)
+PRODUCT.md          Qué es el producto y para quién (contexto para el diseño)
+DESIGN.md           Sistema de diseño: colores, tipografía, componentes y reglas
 docs/
   arquitectura.md   Cómo está armada la app y por qué
   roadmap.md        Hoja de ruta: lo que falta para igualar a GitKraken y extras propios

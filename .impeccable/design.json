@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T00:00:00.000Z",
+  "title": "Design System: GitOno",
+  "extensions": {
+    "colorMeta": {
+      "caramel": { "role": "primary", "displayName": "Caramelo", "canonical": "#a35f2a", "tonalRamp": ["#3a200c", "#5a3114", "#7c441d", "#a35f2a", "#c07c44", "#d69b67", "#e8bf96", "#f6e3cd"] },
+      "caramel-glow": { "role": "primary", "displayName": "Caramelo claro (oscuro)", "canonical": "#e2a26a" },
+      "apricot-focus": { "role": "primary", "displayName": "Damasco de foco", "canonical": "#c98f5e" },
+      "cream-ground": { "role": "neutral", "displayName": "Crema de fondo", "canonical": "#eee6dc", "tonalRamp": ["#2a1f18", "#4a3a30", "#6e5c50", "#9a8676", "#c4b2a3", "#ddd0c3", "#eee6dc", "#fbf7f2"] },
+      "cocoa-ground": { "role": "neutral", "displayName": "Fondo cacao", "canonical": "#16110e", "tonalRamp": ["#0b0807", "#16110e", "#211a16", "#2c231d", "#3a2e26", "#5a4a3e", "#a28e7e", "#f3e9df"] },
+      "added": { "role": "tertiary", "displayName": "Verde agregado", "canonical": "#2f8a57" },
+      "deleted": { "role": "tertiary", "displayName": "Rojo borrado", "canonical": "#c2453a" },
+      "modified": { "role": "tertiary", "displayName": "Ámbar modificado", "canonical": "#a7720f" },
+      "renamed": { "role": "tertiary", "displayName": "Azul renombrado", "canonical": "#2f6fbf" }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Título", "purpose": "Asunto del commit en el detalle y títulos de panel." },
+      "body": { "displayName": "Cuerpo", "purpose": "Toda la interfaz." },
+      "label": { "displayName": "Etiqueta", "purpose": "Títulos de sección, encabezados de columna y etiquetas de ramas." },
+      "mono": { "displayName": "Mono", "purpose": "SHA, código, diffs y atajos de teclado." }
+    },
+    "shadows": [
+      { "name": "panel", "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 10px 28px -16px rgba(74,44,22,0.32), 0 2px 6px -3px rgba(74,44,22,0.1)", "purpose": "Paneles de vidrio, barra de herramientas y pestaña activa (tema claro)." },
+      { "name": "pop", "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 22px 48px -18px rgba(60,35,18,0.42), 0 4px 12px -4px rgba(60,35,18,0.14)", "purpose": "Menús emergentes (tema claro)." },
+      { "name": "glass", "value": "backdrop-filter: blur(28px) saturate(160%)", "purpose": "Material de los paneles; se apaga con el vidrio desactivado o con prefers-reduced-transparency." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.2, 0.8, 0.2, 1)", "purpose": "Transiciones de estado (150–180 ms)." },
+      { "name": "pop-in", "value": "160ms, opacity + translateY(-4px) scale(0.98)", "purpose": "Aparición de menús y de la tarjeta de linaje." }
+    ],
+    "breakpoints": [{ "name": "compacto", "value": "1240px" }]
+  },
+  "components": [
+    {
+      "name": "Botón principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de una vista: hacer commit, preparar, abrir repositorio.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Preparar bloque</button>",
+      "css": ".ds-btn { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:8px; font:600 13px/1 system-ui, sans-serif; cursor:pointer; transition:background-color .15s, transform .12s; } .ds-btn-primary { background:#a35f2a; color:#fff; border:1px solid #84491d; box-shadow:0 1px 0 rgba(255,255,255,.22) inset, 0 4px 10px -6px #6b3a16; } .ds-btn-primary:hover { background:#b06f3f; } .ds-btn-primary:active { transform:translateY(.5px); background:#8c5224; } .ds-btn-primary:focus-visible { outline:2px solid #c98f5e; outline-offset:1px; }"
+    },
+    {
+      "name": "Botón secundario",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acciones secundarias sobre vidrio.",
+      "html": "<button class=\"ds-btn-secondary\">Actualizar</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:8px; border:1px solid rgba(84,56,36,.22); background:rgba(255,252,248,.88); color:#2a1f18; font:400 13px/1 system-ui, sans-serif; cursor:pointer; } .ds-btn-secondary:hover { background:#f3ebe2; } .ds-btn-secondary:focus-visible { outline:2px solid #c98f5e; outline-offset:1px; }"
+    },
+    {
+      "name": "Campo de búsqueda",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Búsqueda de commits y filtro de ramas, con ícono adentro.",
+      "html": "<label class=\"ds-search\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input placeholder=\"Buscar por mensaje, autor o SHA\"></label>",
+      "css": ".ds-search { display:flex; align-items:center; gap:7px; height:28px; padding:0 9px; border:1px solid rgba(84,56,36,.22); border-radius:8px; background:rgba(255,252,248,.88); color:#7c6a5d; } .ds-search input { flex:1; border:none; background:none; outline:none; font:13px system-ui, sans-serif; color:#2a1f18; } .ds-search:focus-within { border-color:#c98f5e; box-shadow:0 0 0 3px rgba(201,143,94,.25); }"
+    },
+    {
+      "name": "Etiqueta de rama local",
+      "kind": "chip",
+      "refersTo": "ref-pill-local",
+      "description": "Etiqueta de rama en la columna izquierda del historial, con el color de su carril.",
+      "html": "<span class=\"ds-pill\">feature/login</span>",
+      "css": ".ds-pill { display:inline-flex; align-items:center; height:21px; padding:0 7px; border-radius:6px; background:#c74f74; border:1px solid #c74f74; color:#fff; font:600 11.5px/1 system-ui, sans-serif; } .ds-pill:hover { filter:brightness(1.06); }"
+    },
+    {
+      "name": "Pestaña de repo activa",
+      "kind": "nav",
+      "refersTo": "repo-tab-active",
+      "description": "Pestaña de un repo abierto en la barra de título.",
+      "html": "<div class=\"ds-tab\">tienda<span class=\"ds-tab-x\">×</span></div>",
+      "css": ".ds-tab { display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 8px 0 11px; border-radius:8px; border:1px solid rgba(84,56,36,.12); background:rgba(255,252,248,.88); color:#2a1f18; font:500 13px system-ui, sans-serif; box-shadow:0 10px 28px -16px rgba(74,44,22,.32); } .ds-tab-x { color:#7c6a5d; font-size:13px; }"
+    },
+    {
+      "name": "Marca de linaje",
+      "kind": "custom",
+      "refersTo": "lineage-mark",
+      "description": "Pastilla en la fila donde nace o se mergea la rama elegida.",
+      "html": "<span class=\"ds-mark ds-mark-fork\">feature/login nace acá</span> <span class=\"ds-mark ds-mark-merge\">mergeada en main</span>",
+      "css": ".ds-mark { display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:999px; font:600 11.5px/1 system-ui, sans-serif; } .ds-mark-fork { background:rgba(163,95,42,.18); color:#8a4c1e; } .ds-mark-merge { background:rgba(47,138,87,.18); color:#2f8a57; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Ono, vidrio cálido",
+    "overview": "GitOno conserva la organización de GitKraken: pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro y detalle a la derecha. El mundo visual cambia: la paleta sale del pelaje de Ono, con neutros crema y damasco, acento caramelo y, en oscuro, tonos cacao y espresso. Los paneles son de vidrio esmerilado y flotan sobre un fondo cálido; el vidrio cumple una función: el contenido pasa desenfocado por debajo de los encabezados fijos. El detalle distintivo es el linaje de la rama.",
+    "keyCharacteristics": [
+      "Estructura de GitKraken, sin inventar controles: botones, pestañas, selectores y listas estándar.",
+      "Paleta cálida en los dos temas. El acento caramelo marca selección, acción principal y foco.",
+      "Vidrio funcional: hay contenido que pasa por debajo, nunca es adorno suelto.",
+      "Color de carril por rama, que se repite en el gráfico, las etiquetas y los conectores.",
+      "Letra del sistema para todo y monoespaciada solo para SHA, código y diffs."
+    ],
+    "rules": [
+      { "name": "La regla del color que trabaja", "body": "El caramelo solo aparece en selección, acción principal, foco y estado activo. Los colores de carril solo identifican ramas. Ningún color es decoración.", "section": "colors" },
+      { "name": "La regla de la paleta compartida", "body": "El color de un carril es el mismo en el nodo, las líneas, el conector y la etiqueta de la rama.", "section": "colors" },
+      { "name": "La regla de una sola voz", "body": "Una sola familia sans para toda la interfaz. La jerarquía sale del peso y de saltos chicos de tamaño.", "section": "typography" },
+      { "name": "La regla del vidrio con contenido", "body": "El desenfoque solo se usa donde algo pasa por debajo. Con el vidrio apagado, todo pasa a ser sólido y nada se rompe.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar el color del carril para todo lo que pertenece a una rama: nodo, líneas, conector y etiqueta.",
+      "Do dar el caramelo solo a selección, acción principal, foco y estado activo.",
+      "Do usar íconos Lucide de trazo 1,75 (2–2,75 en tamaños de 11–12px) en todos los controles.",
+      "Do probar cada pantalla en claro, en oscuro y con el vidrio apagado.",
+      "Do ocultar columnas antes que cortar el mensaje del commit."
+    ],
+    "donts": [
+      "Don't usar caracteres Unicode o emojis como íconos (›, ↺, ⇄): se reemplazaron por íconos reales.",
+      "Don't poner franjas de color de más de 1px a los costados de filas o bloques. La selección se marca con el fondo.",
+      "Don't agregar desenfoque donde no pasa contenido por debajo.",
+      "Don't mostrar controles de funciones que todavía no existen (pull, push, merge… hasta la etapa 3).",
+      "Don't volver al azul marino con neón de GitKraken: el oscuro de GitOno es cacao."
+    ]
+  }
+}

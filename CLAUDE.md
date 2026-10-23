@@ -9,6 +9,13 @@ Cliente Git de escritorio (Electron + React + TypeScript). Ver `README.md` y `do
 - `src/main/git/` y `src/main/providers/` no importan Electron, para poder testearlos con Node.
 - A Git se le pasan nombres de referencia completos (`refs/heads/...`) y se valida cada uno con `assertSafeRef`.
 
+## Diseño
+
+- El sistema visual está en `DESIGN.md` (tokens, componentes y reglas) y el contexto del producto en `PRODUCT.md`. Los cambios de interfaz se hacen con la skill Impeccable, que lee los dos y el brief de `.impeccable/surfaces/app.md`.
+- Cada pantalla se prueba en claro, en oscuro y con el vidrio apagado.
+- El logo se regenera con `node build/logo/ono.mjs`. Después hay que copiar los SVG a `src/renderer/src/assets/` y `build/icon.svg`, y volver a renderizar `build/icon.png`.
+- Para probar la app sin tocar la configuración del usuario, usar una carpeta de datos aparte (`--user-data-dir`).
+
 ## Comandos
 
 - `npm run dev`: app en modo desarrollo (`npx electron-vite dev -- <carpeta>` abre directo un repo).

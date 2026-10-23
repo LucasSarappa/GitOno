@@ -1,8 +1,9 @@
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FileChange, FileContent, FileSource } from '../../../shared/types'
 import { api } from '../api'
-import { STATUS_META } from '../lib/status'
 import { languageFor, monaco } from '../monaco'
+import { StatusBadge } from './StatusBadge'
 
 export interface DiffOptions {
   sideBySide: boolean
@@ -111,7 +112,6 @@ export function DiffView({ root, left, right, labelA, labelB, change, options, o
     previous?.modified.dispose()
   }, [state, change.path])
 
-  const meta = STATUS_META[change.status]
   const message = blockingMessage(state)
   const identical =
     state.status === 'ready' && state.left.kind === 'text' && state.right.kind === 'text' && state.left.text === state.right.text
@@ -121,26 +121,24 @@ export function DiffView({ root, left, right, labelA, labelB, change, options, o
     <section className="diff">
       <header className="diff__header">
         <div className="diff__title">
-          <span className={`status-badge status-badge--${meta.tone}`} title={meta.label}>
-            {meta.symbol}
-          </span>
+          <StatusBadge status={change.status} />
           <span className="diff__path" title={change.path}>
             {change.oldPath ? (
               <>
-                <span className="muted">{change.oldPath}</span> → {change.path}
+                <span className="text-2">{change.oldPath}</span> → {change.path}
               </>
             ) : (
               change.path
             )}
           </span>
-          {state.status === 'loading' && <span className="muted">Cargando…</span>}
+          {state.status === 'loading' && <span className="text-2 small">Cargando…</span>}
         </div>
         <div className="diff__actions">
-          <button className="icon-button" title="Cambio anterior" onClick={() => editorRef.current?.goToDiff('previous')}>
-            ↑
+          <button className="btn btn--icon btn--ghost" aria-label="Cambio anterior" title="Cambio anterior" onClick={() => editorRef.current?.goToDiff('previous')}>
+            <ChevronUp size={16} strokeWidth={1.75} />
           </button>
-          <button className="icon-button" title="Cambio siguiente" onClick={() => editorRef.current?.goToDiff('next')}>
-            ↓
+          <button className="btn btn--icon btn--ghost" aria-label="Cambio siguiente" title="Cambio siguiente" onClick={() => editorRef.current?.goToDiff('next')}>
+            <ChevronDown size={16} strokeWidth={1.75} />
           </button>
           <span className="divider" />
           <Toggle label="Lado a lado" checked={options.sideBySide} onChange={() => toggle('sideBySide')} />

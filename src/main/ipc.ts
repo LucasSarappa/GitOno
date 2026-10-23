@@ -1,6 +1,18 @@
-import { resolve } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
-import { IPC, type ConfirmOptions, type FileSource, type IpcResult, type PatchAction, type WorkingArea, type WorkingFile } from '../shared/types'
+import { join, resolve } from 'node:path'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
+import {
+  IPC,
+  type ConfirmOptions,
+  type FileSource,
+  type IpcResult,
+  type NativeAppearance,
+  type PatchAction,
+  type ProviderInfo,
+  type WorkingArea,
+  type WorkingFile
+} from '../shared/types'
+import { AvatarResolver } from './avatars'
+import { branchesContaining, branchInsight } from './git/branches'
 import { commitDetails, compareRefs, fetchAll, listCommits, listRefs, openRepo } from './git/repo'
 import { watchRepo } from './git/watch'
 import {
@@ -41,8 +53,10 @@ function repoPathFromArgs(argv: string[]): string | null {
   return last ? resolve(last) : null
 }
 
-/** Se vigila un solo repo a la vez: el que está abierto. */
-let stopWatching: (() => void) | null = null
+/** Repos vigilados: uno por pestaña abierta. */
+const watchers = new Map<string, () => void>()
+
+let avatars: AvatarResolver | null = null
 
 export function registerIpc(): void {
   handle(IPC.pickRepo, async () => {
@@ -77,6 +91,20 @@ export function registerIpc(): void {
   handle(IPC.commit, (root: string, message: string, amend: boolean) => commit(root, message, amend))
   handle(IPC.lastCommitMessage, (root: string) => lastCommitMessage(root))
 
+  handle(IPC.branchInsight, (root: string, ref: string) => branchInsight(root, ref))
+  handle(IPC.branchesContaining, (root: string, sha: string) => branchesContaining(root, sha))
+  handle(IPC.resolveAvatars, async (_root: string, emails: string[], provider: ProviderInfo | null) => {
+    avatars ??= new AvatarResolver(join(app.getPath('userData'), 'avatars.json'))
+    return avatars.resolve(emails, provider)
+  })
+
+  handleWithEvent(IPC.setAppearance, async (event, appearance: NativeAppearance) => {
+    // Los diálogos nativos y el menú contextual siguen el tema elegido en la app.
+    nativeTheme.themeSource = appearance.theme
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window && process.platform === 'win32') window.setTitleBarOverlay({ ...appearance.titleBar, height: TITLE_BAR_HEIGHT })
+  })
+
   handleWithEvent(IPC.confirm, async (event, options: ConfirmOptions) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const box: Electron.MessageBoxOptions = {
@@ -94,11 +122,27 @@ export function registerIpc(): void {
   })
 
   handleWithEvent(IPC.watchRepo, async (event, root: string) => {
-    stopWatching?.()
+    if (watchers.has(root)) return
     const sender = event.sender
-    stopWatching = watchRepo(root, (change) => {
-      if (!sender.isDestroyed()) sender.send(IPC.repoChanged, change)
-    })
-    sender.once('destroyed', () => stopWatching?.())
+    if (watchers.size === 0) {
+      // Al cerrar la ventana se dejan de vigilar todos los repos.
+      sender.once('destroyed', () => {
+        for (const stop of watchers.values()) stop()
+        watchers.clear()
+      })
+    }
+    watchers.set(
+      root,
+      watchRepo(root, (change) => {
+        if (!sender.isDestroyed()) sender.send(IPC.repoChanged, root, change)
+      })
+    )
+  })
+  handle(IPC.unwatchRepo, async (root: string) => {
+    watchers.get(root)?.()
+    watchers.delete(root)
   })
 }
+
+/** Alto de la barra de título propia (las pestañas de repos viven ahí). */
+export const TITLE_BAR_HEIGHT = 40

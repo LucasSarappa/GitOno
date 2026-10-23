@@ -1,3 +1,4 @@
+import { ArrowLeftRight } from 'lucide-react'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { CompareResult, FileChange, RefList, RepoInfo } from '../../../shared/types'
 import { api } from '../api'
@@ -14,6 +15,13 @@ const NO_FILES: FileChange[] = []
 const SIDEBAR_MIN = 220
 const SIDEBAR_MAX = 640
 
+/** Pedido de comparar dos referencias desde otra vista (ej. "Comparar con main" en el historial). */
+export interface CompareRequest {
+  refA: string
+  refB: string
+  nonce: number
+}
+
 interface Props {
   repo: RepoInfo
   refs: RefList
@@ -22,10 +30,11 @@ interface Props {
   options: DiffOptions
   onOptionsChange(options: DiffOptions): void
   onError(message: string): void
+  request: CompareRequest | null
 }
 
 /** Compara el contenido de dos ramas (o tags) como si fueran dos carpetas. */
-export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, onError }: Props) {
+export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, onError, request }: Props) {
   const [refA, setRefA] = useState(() => refs.refs.find((r) => r.ref === refs.current)?.ref ?? refs.refs[0]?.ref ?? '')
   const [refB, setRefB] = useState('')
   const [comparison, setComparison] = useState<Comparison>({ status: 'idle' })
@@ -35,6 +44,13 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
   const [sidebarWidth, setSidebarWidth] = useState(() => loadSetting('sidebarWidth', 320))
 
   useEffect(() => saveSetting('sidebarWidth', sidebarWidth), [sidebarWidth])
+
+  useEffect(() => {
+    if (!request) return
+    setRefA(request.refA)
+    setRefB(request.refB)
+    setSelectedPath(null)
+  }, [request])
 
   // Si después de un fetch alguna rama elegida ya no existe, se deselecciona.
   useEffect(() => {
@@ -131,34 +147,35 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
 
   return (
     <div className="compare">
-      <div className="compare__toolbar">
+      <div className="compare__toolbar panel glass">
         <RefSelect label="A" refs={refs} value={refA} onChange={setRefA} />
         <button
-          className="icon-button"
+          className="btn btn--icon"
           title="Intercambiar A y B"
+          aria-label="Intercambiar A y B"
           disabled={!refA || !refB}
           onClick={() => {
             setRefA(refB)
             setRefB(refA)
           }}
         >
-          ⇄
+          <ArrowLeftRight size={15} strokeWidth={1.75} />
         </button>
         <RefSelect label="B" refs={refs} value={refB} onChange={setRefB} />
       </div>
 
-      <div className="workspace" style={{ gridTemplateColumns: `${sidebarWidth}px 5px minmax(0, 1fr)` }}>
-        <aside className="sidebar">
+      <div className="compare__body" style={{ gridTemplateColumns: `${sidebarWidth}px 8px minmax(0, 1fr)` }}>
+        <aside className="panel glass compare__files">
           {comparison.status === 'done' && <Summary result={comparison.result} />}
           <input
-            className="filter"
+            className="field compare__filter"
             type="search"
             placeholder="Filtrar archivos…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             disabled={files.length === 0}
           />
-          <div className="sidebar__tree" onKeyDown={onTreeKeyDown}>
+          <div className="compare__tree" onKeyDown={onTreeKeyDown}>
             <FileTree
               nodes={tree}
               selectedPath={selected?.path ?? null}
@@ -169,7 +186,7 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
           </div>
         </aside>
         <ResizeHandle onResize={(x) => setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, x)))} />
-        <main className="main">{main}</main>
+        <main className="panel glass compare__diff">{main}</main>
       </div>
     </div>
   )
@@ -192,7 +209,7 @@ function Summary({ result }: { result: CompareResult }) {
         <strong>{plural(result.files.length, 'archivo', 'archivos')}</strong>{' '}
         <span className="added">+{additions}</span> <span className="deleted">−{deletions}</span>
       </div>
-      <div className="muted small">
+      <div className="text-2 small">
         B tiene {plural(result.commitsOnlyInB, 'commit', 'commits')} que A no tiene · A tiene{' '}
         {plural(result.commitsOnlyInA, 'commit', 'commits')} que B no tiene
       </div>

@@ -123,6 +123,27 @@ Un `fs.watch` recursivo sobre la carpeta del repo avisa a la interfaz por el can
 - **Ráfagas:** los cambios se agrupan. El aviso sale 300 ms después del primero de una ráfaga, aunque sigan llegando más; durante algo largo, como un `npm install`, la app se sigue actualizando cada tanto.
 - **Al volver a la ventana** también se relee el estado.
 
+### Linaje de ramas (`src/main/git/branches.ts`)
+
+- **`defaultBranch`:** elige la rama principal: la que apunta `origin/HEAD`, o `main`, `master`, `develop` o `trunk`. Si existe la copia local, la prefiere a la remota.
+- **`branchInsight`:** arma el linaje de una rama, según su caso:
+  - **sin mergear:** el origen sale de `git merge-base --fork-point` (usa el reflog de la principal) y, si no alcanza, del ancestro común; los commits propios son `principal..rama`;
+  - **mergeada con commit de merge:** el merge es el primero de `git rev-list --ancestry-path --merges --reverse punta..principal`, y los commits propios son los que trajo (`punta ^primer-padre-del-merge`);
+  - **mergeada por avance rápido:** queda marcada como "fast-forward";
+  - **creación:** sale del reflog de la rama ("branch: Created from …"). Si dice HEAD, se cruza con el reflog de HEAD para saber en qué rama estaba parado el repo.
+- **`branchesContaining`:** `git for-each-ref --contains`, para el "En ramas" del detalle.
+
+### Avatares (`src/main/avatars.ts`)
+
+`AvatarResolver` resuelve la foto de cada email, en este orden:
+1. **Emails privados de GitHub** (`123+usuario@users.noreply.github.com`): la URL se arma directo, sin consultar nada.
+2. **Repos de GitHub:** se piden las últimas 300 entradas de la API pública de commits, que traen el avatar de cada autor. Se guardan una semana en `avatars.json`, en la carpeta de datos de la app.
+3. **Gravatar,** con el SHA-256 del email. Antes se verifica con un pedido HEAD que la foto exista, y se guarda en caché si existe o no. Así la interfaz solo recibe URLs que cargan.
+
+La interfaz junta los emails de las filas visibles y los pide de a tandas (`lib/avatars.tsx`). Sin foto, se ven las iniciales.
+
+La política de seguridad (CSP) solo permite imágenes de `avatars.githubusercontent.com`, `github.com` y `www.gravatar.com`. Con los avatares apagados en Apariencia no se hace ningún pedido.
+
 ### Adaptadores de plataforma (`src/main/providers/`)
 
 Cada plataforma implementa la interfaz `GitProvider` (`providers/types.ts`). El resto de la app solo conoce esa interfaz.
@@ -148,7 +169,18 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
 
 ## Interfaz (`src/renderer/src/`)
 
-- `App.tsx`: repo abierto, referencias, pestañas, botón de fetch y avisos de error. Las dos vistas quedan montadas (se ocultan con `hidden`), así al cambiar de pestaña no se pierde lo que estabas mirando. Se suscribe a los avisos de cambios en el disco y maneja dos contadores: `reloadKey` (ramas e historial: fetch, commit, cambios en `.git/refs`) y `statusKey` (carpeta de trabajo).
+- `App.tsx`: pestañas de repos.
+  - Abre, cierra y cambia de pestaña, con los atajos.
+  - Recuerda las pestañas abiertas y las restaura al arrancar, sin duplicar una carpeta escrita de dos formas.
+  - Cada pestaña queda montada (se oculta con `hidden`), así no se pierde lo que estabas mirando.
+- `views/RepoWorkspace.tsx`: todo lo de un repo: barra de herramientas, vistas Historial y Comparar, avisos de error y la vigilancia del disco (`watchRepo` por pestaña; los avisos traen la carpeta del repo). Maneja dos contadores: `reloadKey` (ramas e historial: fetch, commit, cambios en `.git/refs`) y `statusKey` (carpeta de trabajo).
+- `components/TitleBar.tsx`: barra de título propia, con el logo y las pestañas.
+  - **Windows:** `titleBarStyle: 'hidden'` con `titleBarOverlay`; los botones nativos toman los colores del tema.
+  - **macOS:** `hiddenInset`, con los semáforos a la izquierda.
+  - **Linux:** se deja la barra del sistema, y las pestañas van en una fila propia.
+- `lib/appearance.tsx`: tema (sistema, claro u oscuro), vidrio y avatares. Aplica `data-theme` y `data-glass` al documento, el tema de Monaco y `nativeTheme.themeSource`, para que los diálogos nativos sigan el tema.
+- `components/AppearanceMenu.tsx`: el menú de Apariencia. Se dibuja en un portal porque el desenfoque de la barra crea una capa propia que lo dejaría debajo de los paneles.
+- `components/BranchInsightCard.tsx` y la marca de linaje en `CommitList.tsx`: el linaje de la rama elegida.
 - `views/HistoryView.tsx`: pestaña Historial. Panel de ramas, lista de commits con la fila WIP, búsqueda y panel derecho, que muestra el detalle del commit o, con la fila WIP elegida, el panel de preparación. Cuando un archivo local abierto se prepara entero, la vista pasa a mostrarlo como preparado; si ya no tiene cambios, vuelve al gráfico.
 - `components/WorkingTreePanel.tsx`: archivos sin preparar, preparados y con conflictos, y la caja de commit. El borrador del mensaje vive en `HistoryView`, así no se pierde al mirar otro commit.
 - `components/WorkingFileView.tsx`: un archivo local en el centro, por bloques (`HunkView`) o lado a lado (`DiffView` con el índice o la carpeta de trabajo como origen).
@@ -161,11 +193,15 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
 - `components/RefSelect.tsx`: selector de rama agrupado en locales, remotas y tags.
 - `components/FileTree.tsx`: árbol de archivos cambiados. Las carpetas con un solo hijo se compactan (`src/main/git`), como en VS Code.
 - `components/DiffView.tsx`: visor Monaco. El editor se crea una sola vez; al cambiar de archivo solo se reemplazan los modelos, así no parpadea.
-- `monaco.ts`: configuración de Monaco (workers locales, idioma español, sin validaciones porque es de solo lectura, tema según Windows).
+- `monaco.ts`: configuración de Monaco (workers locales, idioma español, sin validaciones porque es de solo lectura). Tiene un tema claro y uno oscuro con la paleta de la app.
 - `lib/refs.ts`: arma las etiquetas de cada commit y junta una rama local con su remota cuando apuntan al mismo commit.
 - `lib/settings.ts`: preferencias guardadas (ancho del panel, opciones del diff, pestaña). Si el almacenamiento falla, se usan los valores por defecto.
 
-Los estados de archivo usan símbolos (+, −, ~, →) en lugar de las letras de Git (A, M, D) para no confundirlos con "rama A" y "rama B".
+Los estados de archivo usan íconos (más, menos, lápiz, flecha) sobre el color del estado, en lugar de las letras de Git (A, M, D), para no confundirlos con "rama A" y "rama B" (`components/StatusBadge.tsx`).
+
+**Estilos:** el sistema visual está en `DESIGN.md` y se implementa en `styles.css` con variables CSS por tema. Los colores de carril del gráfico también son variables (`--lane-0` … `--lane-7`), así cambian con el tema.
+
+**Columnas del historial:** cuando al mensaje le quedan menos de 240 px, se ocultan SHA, Fecha y Autor, en ese orden.
 
 ### Cómo se dibuja el gráfico (`lib/graph.ts`)
 
@@ -192,7 +228,10 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
   - commit en un repo vacío y enmendar.
 - `git/watch.test.ts`: clasificación de cambios en el disco y agrupado de ráfagas.
 - `shared/patch.test.ts`: lectura de diffs y armado de parches parciales (también "sin salto de línea al final").
+- `git/branches.test.ts`: linaje contra un repo real: mergeada con commit de merge, por avance rápido, sin mergear, recién creada (con `git branch` y con `checkout -b`), la principal, y las ramas que contienen un commit.
+- `avatars.test.ts`: emails privados de GitHub, Gravatar (también sin foto), caché en disco y la API de GitHub fallando.
 - `providers/providers.test.ts`: lectura de URLs y detección de plataforma.
+- `renderer/src/lib/merge.test.ts`: lectura de mensajes de merge de Git, GitHub y GitLab.
 - `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados, fila WIP punteada).
 - `renderer/src/lib/refs.test.ts`: etiquetas de cada commit.
 - `renderer/src/lib/tree.test.ts`: armado del árbol de archivos.
@@ -203,5 +242,8 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
 - **La carpeta de instalación es fija** (`%LOCALAPPDATA%\Programs\GitOno`). El desinstalador de electron-builder hace `RMDir /r` de la carpeta de instalación, y al actualizar, el instalador ejecuta primero el desinstalador de la versión anterior. Si se dejara elegir la carpeta y coincidiera con una carpeta con otros archivos (por ejemplo, la del proyecto), se borraría entera.
 - Al instalador solo entra `out/` y el `package.json`. React y Monaco están en `devDependencies` porque Vite ya los incluye en `out/renderer`; así no se copian dos veces y el `app.asar` pesa unos 24 MB.
 - La app empaquetada carga la interfaz desde `app.asar` con `file://`. Los workers de Monaco funcionan ahí sin configuración extra.
-- El ícono sale de `build/icon.svg`. electron-builder usa `build/icon.png` (512 × 512, fondo transparente) para generar el `.ico`. Si se cambia el SVG, hay que volver a exportar el PNG.
+- **Logo de Ono:** lo genera `build/logo/ono.mjs` (`node build/logo/ono.mjs`), con rulos procedurales de semilla fija y la cara dibujada a mano.
+  - Produce `ono.svg` (detallado: bienvenida y README) y `ono-mark.svg` (simplificado: barra de título e ícono).
+  - Las copias de `src/renderer/src/assets/` y `build/icon.svg` salen de ahí.
+  - `build/icon.png` (512 × 512, fondo transparente) es `ono-mark.svg` renderizado con Electron; electron-builder lo usa para generar el `.ico`. Si se cambia el logo, hay que volver a renderizarlo.
 - Sin firma digital ni actualización automática por ahora.

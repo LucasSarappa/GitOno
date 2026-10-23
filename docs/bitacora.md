@@ -91,9 +91,19 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 - **`loadSetting`:** convertía en objeto un valor guardado que tenía que ser una lista.
 - **Etiqueta de la rama actual:** el borde hecho con sombra parecía un par de corchetes; se cambió por un contorno separado.
 - **Mensaje del commit muy angosto:** se ajustaron los anchos de las columnas y los paneles laterales, y se agregó la ocultación de columnas.
+- **La v0.3 también quedó instalada dentro del proyecto:** los archivos de la app y los accesos directos son del 21/10, cuando se instaló con `GitOno-Setup-0.3.0.exe`.
+  - **Causa:** no se encontró. Ese instalador tenía `allowToChangeInstallationDirectory: false` y, sin instalación previa registrada, usa `%LOCALAPPDATA%\Programs\GitOno`. Tampoco quedaron claves de registro de esa instalación.
+  - **Limpieza, de nuevo sin el desinstalador** (borraría la carpeta entera, o sea el proyecto):
+    - primero se hizo commit y push de la v0.4.0;
+    - fueron a la papelera los 74 archivos sin seguimiento idénticos (SHA-256) a los de `dist/win-unpacked`, más `Uninstall GitOno.exe`;
+    - también los dos accesos directos, después de verificar que apuntaban a `GitOno.exe` en el proyecto;
+    - no había registro que borrar.
+  - **Quedó `resources/app.asar`:** otra vez lo tiene abierto otro proceso, probablemente la app de Claude.
 
 ### Pendiente
 
+- Borrar `resources/` de la raíz del proyecto después de reiniciar la app de Claude.
+- Al instalar la v0.4.0, verificar que quede en `%LOCALAPPDATA%\Programs\GitOno` y no en el proyecto. Nunca ejecutar un `Uninstall GitOno.exe` que esté dentro del proyecto.
 - Probar en macOS y Linux. La barra de título de cada uno no se pudo ver, y en Windows los botones nativos no salen en las capturas.
 - Fotos de los autores en repos de GitLab: por ahora, solo Gravatar.
 - Etapa 3 de la hoja de ruta: operaciones (checkout, ramas, pull/push, merge, rebase, stash, menú contextual).

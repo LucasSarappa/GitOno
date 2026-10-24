@@ -9,6 +9,8 @@ export interface ColumnsConfig {
   /** Ancho elegido de cada columna. El gráfico sin ancho se ajusta a sus carriles; el mensaje usa lo que sobra. */
   widths: Partial<Record<ColumnId, number>>
   hidden: ColumnId[]
+  /** Versión de la configuración, para migrar las viejas. */
+  version?: number
 }
 
 export const COLUMN_LABELS: Record<ColumnId, string> = {
@@ -27,7 +29,8 @@ export const DEFAULT_COLUMNS: ColumnsConfig = {
   order: [...MOVABLE],
   widths: { refs: 156, author: 144, date: 112, sha: 72 },
   // Como GitKraken: por defecto solo Rama / tag, Gráfico y Mensaje (el autor va en el nodo del gráfico).
-  hidden: ['author', 'date', 'sha']
+  hidden: ['author', 'date', 'sha'],
+  version: 2
 }
 
 export const MIN_WIDTH: Record<ColumnId, number> = { refs: 48, graph: 32, message: 160, author: 72, date: 64, sha: 56 }
@@ -47,7 +50,11 @@ export function normalizeColumns(config: ColumnsConfig): ColumnsConfig {
   const order = config.order.filter((id, i) => MOVABLE.includes(id) && config.order.indexOf(id) === i)
   for (const id of MOVABLE) if (!order.includes(id)) order.push(id)
   const hidden = config.hidden.filter((id) => id !== 'message' && id in COLUMN_LABELS)
-  return { order, hidden, widths: { ...config.widths } }
+  const widths = { ...config.widths }
+  // Hasta la v0.6.1 los carriles medían 16 px: un ancho de gráfico elegido entonces corta las fotos de
+  // los nodos (24 px por carril). Se vuelve a ajustar a los carriles una sola vez.
+  if ((config.version ?? 1) < 2) delete widths.graph
+  return { order, hidden, widths, version: 2 }
 }
 
 export const clampWidth = (id: ColumnId, width: number) => Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH[id], width)))

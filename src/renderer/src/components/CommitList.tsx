@@ -20,7 +20,7 @@ import { childrenOf, nearestBranch } from '../lib/ghost'
 import type { Graph } from '../lib/graph'
 import type { RefLabel } from '../lib/refs'
 import { Avatar } from './Avatar'
-import { CommitGraphCell, LANE_WIDTH, LANE_WIDTH_AVATARS, laneColor, laneX, ROW_HEIGHT } from './CommitGraphCell'
+import { CommitGraphCell, GRAPH_PAD, LANE_WIDTH, LANE_WIDTH_AVATARS, laneColor, laneX, ROW_HEIGHT } from './CommitGraphCell'
 
 const HEADER_HEIGHT = 30
 const MAX_VISIBLE_LANES = 20
@@ -158,7 +158,7 @@ export function CommitList(props: Props) {
   const laneWidth = graphAvatars ? LANE_WIDTH_AVATARS : LANE_WIDTH
   const lanes = Math.max(1, Math.min(graph.width, MAX_VISIBLE_LANES))
   // Ancho que necesita el gráfico para sus carriles (si no se eligió otro); mínimo, el del título.
-  const graphAuto = Math.max(lanes * laneWidth + 10, 64)
+  const graphAuto = Math.max(lanes * laneWidth + GRAPH_PAD * 2 + 4, 64)
   const layout = layoutColumns(columns, viewportWidth, graphAuto)
   const template = gridTemplate(layout)
   const refsVisible = layout.some((c) => c.id === 'refs')

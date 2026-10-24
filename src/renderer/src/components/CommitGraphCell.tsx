@@ -13,8 +13,11 @@ export const AVATAR_RING = 11
 /** Color de un carril, tomado del tema. El -1 es el carril gris de WIP. */
 export const laneColor = (index: number): string => (index < 0 ? 'var(--lane-wip)' : `var(--lane-${index % LANE_COUNT})`)
 
+/** Margen a los costados del gráfico, para que el halo del commit actual no toque el borde. */
+export const GRAPH_PAD = 6
+
 /** Centro horizontal de un carril. */
-export const laneX = (lane: number, laneWidth: number): number => lane * laneWidth + laneWidth / 2
+export const laneX = (lane: number, laneWidth: number): number => GRAPH_PAD + lane * laneWidth + laneWidth / 2
 
 /** Línea recta si no cambia de carril; curva suave si pasa de un carril a otro. */
 function segment(x1: number, y1: number, x2: number, y2: number): string {
@@ -46,7 +49,7 @@ export function CommitGraphCell(props: Props) {
   const color = laneColor(row.color)
   const nodeRadius = avatarNode ? AVATAR_RING : isVirtual ? 6 : 5.5
   return (
-    <svg className={`graph-cell${emphasized ? ' graph-cell--emphasized' : ''}`} width={lanes * laneWidth} height={ROW_HEIGHT} aria-hidden>
+    <svg className={`graph-cell${emphasized ? ' graph-cell--emphasized' : ''}`} width={lanes * laneWidth + GRAPH_PAD * 2} height={ROW_HEIGHT} aria-hidden>
       {hasRefs && <path className="graph-cell__connector" d={`M0 ${MIDDLE}H${x - nodeRadius - 1}`} style={{ stroke: color }} />}
       {row.top.map((line, i) => (
         <path

@@ -24,7 +24,7 @@ describe('layoutColumns', () => {
 
   it('respeta las ocultas, el orden y los anchos elegidos', () => {
     const config = { order: ['sha', 'message', 'author', 'date'] as const, widths: { graph: 200, author: 90 }, hidden: ['date', 'refs'] as const }
-    const layout = layoutColumns({ order: [...config.order], widths: config.widths, hidden: [...config.hidden] }, 2000, 80)
+    const layout = layoutColumns({ order: [...config.order], widths: config.widths, hidden: [...config.hidden], version: 2 }, 2000, 80)
     expect(ids(layout)).toEqual(['graph', 'sha', 'message', 'author'])
     expect(gridTemplate(layout)).toBe('200px 72px minmax(0, 1fr) 90px')
   })
@@ -35,6 +35,14 @@ describe('normalizeColumns', () => {
     const fixed = normalizeColumns({ order: ['author', 'author', 'graph'], widths: {}, hidden: ['message', 'sha'] })
     expect(fixed.order).toEqual(['author', 'message', 'date', 'sha'])
     expect(fixed.hidden).toEqual(['sha'])
+  })
+})
+
+describe('migración', () => {
+  it('un ancho de gráfico de antes de las fotos en los nodos vuelve a ajustarse a los carriles', () => {
+    const old = normalizeColumns({ order: ['message'], widths: { graph: 70, author: 90 }, hidden: [] })
+    expect(old.widths).toEqual({ author: 90 })
+    expect(normalizeColumns({ ...old, widths: { graph: 70 } }).widths.graph).toBe(70)
   })
 })
 

@@ -169,7 +169,7 @@ export function HistoryView(props: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const centerRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
-  const [columns, setColumns] = useState<ColumnsConfig>(() => normalizeColumns(loadSetting('historyColumns', DEFAULT_COLUMNS)))
+  const [columns, setColumns] = useState<ColumnsConfig>(() => normalizeColumns(loadSetting('historyColumns', { ...DEFAULT_COLUMNS, version: 1 })))
   const nonce = useRef(0)
   // Commit recién creado: se centra en la lista apenas aparezca.
   const scrollWhenLoaded = useRef<string | null>(null)

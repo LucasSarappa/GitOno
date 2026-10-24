@@ -4,6 +4,13 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-24 — Sesión 5 (cierre): fotos del gráfico enteras (v0.6.1)
+
+- **Fotos recortadas en el gráfico:** el halo del commit actual se cortaba contra el borde izquierdo de la columna. Además, un ancho de gráfico guardado antes de la v0.6 (cuando los carriles medían 16 px y no 24) cortaba las fotos de los últimos carriles. Ahora el gráfico tiene 6 px de margen a cada lado, y las preferencias de columnas tienen versión: las viejas vuelven, una sola vez, a ajustar el gráfico a sus carriles. Se probó con una foto real de GitHub y con un test de la migración (187 tests).
+- **"No veo nada nuevo en los ⋯":** la app instalada era el instalador 0.6.0, generado antes del detalle compacto. Se generó `GitOno-Setup-0.6.1.exe` con todo.
+
+---
+
 ## 2026-10-24 — Sesión 5 (continuación): detalle liviano y linaje a pedido
 
 ### Qué se hizo

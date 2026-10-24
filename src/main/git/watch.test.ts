@@ -18,6 +18,8 @@ describe('classifyChange', () => {
     ['.git/refs/heads/main.lock', null],
     ['.git/objects/ab/cdef', null],
     ['.git/logs/HEAD', null],
+    ['.git/logs/refs/stash', 'refs'],
+    ['.git/rebase-merge/done', 'refs'],
     ['.git', null],
     ['.gitignore', 'worktree']
   ])('%s → %s', (path, expected) => {

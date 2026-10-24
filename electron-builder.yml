@@ -24,6 +24,9 @@ nsis:
   # de electron-builder borra la carpeta de instalación completa: si se eligiera, por ejemplo, la
   # carpeta de un proyecto, desinstalar o actualizar la app la borraría entera.
   allowToChangeInstallationDirectory: false
+  # Por si igual termina instalada en un proyecto: el desinstalador no borra una carpeta con .git
+  # o package.json.
+  include: build/installer.nsh
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: GitOno

@@ -15,7 +15,9 @@ export function classifyChange(relativePath: string): RepoChange | null {
   if (!inner || inner.endsWith('.lock')) return null
   if (inner === 'index') return 'worktree'
   if (REF_FILES.has(inner) || inner.startsWith('refs/')) return 'refs'
-  return null // objects/, logs/, config, etc.
+  // Un rebase a medio hacer, o un stash borrado (si no es el último, solo cambia su historial).
+  if (inner.startsWith('rebase-merge') || inner.startsWith('rebase-apply') || inner === 'logs/refs/stash') return 'refs'
+  return null // objects/, el resto de logs/, config, etc.
 }
 
 /** Tiempo para juntar una ráfaga de cambios (ej. un `npm install`) en un solo aviso. */

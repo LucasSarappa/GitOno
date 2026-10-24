@@ -9,6 +9,7 @@ import CssWorker from 'monaco-editor/language/css/css.worker?worker'
 import HtmlWorker from 'monaco-editor/language/html/html.worker?worker'
 import JsonWorker from 'monaco-editor/language/json/json.worker?worker'
 import TsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
+import type { ThemeColors } from './lib/themes'
 
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
@@ -41,51 +42,34 @@ monaco.css.cssDefaults.setOptions({ validate: false })
 monaco.css.scssDefaults.setOptions({ validate: false })
 monaco.css.lessDefaults.setOptions({ validate: false })
 
-// Temas del editor con la paleta de la app (styles.css): crema en claro, cacao en oscuro.
-monaco.editor.defineTheme('gitono-light', {
-  base: 'vs',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.background': '#fbf7f2',
-    'editorGutter.background': '#fbf7f2',
-    'editorLineNumber.foreground': '#a8968a',
-    'editorLineNumber.activeForeground': '#66544a',
-    'editor.selectionBackground': '#e9c79f80',
-    'editor.lineHighlightBackground': '#f3ebe2',
-    'diffEditor.insertedLineBackground': '#2f8a5714',
-    'diffEditor.insertedTextBackground': '#2f8a5733',
-    'diffEditor.removedLineBackground': '#c2453a14',
-    'diffEditor.removedTextBackground': '#c2453a33',
-    'diffEditor.diagonalFill': '#d9c8b866',
-    'scrollbarSlider.background': '#5438241f',
-    'scrollbarSlider.hoverBackground': '#54382438'
-  }
-})
-monaco.editor.defineTheme('gitono-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.background': '#211a16',
-    'editorGutter.background': '#211a16',
-    'editorLineNumber.foreground': '#7d6a5c',
-    'editorLineNumber.activeForeground': '#c4b2a3',
-    'editor.selectionBackground': '#e2a26a40',
-    'editor.lineHighlightBackground': '#2a221d',
-    'diffEditor.insertedLineBackground': '#63c58f14',
-    'diffEditor.insertedTextBackground': '#63c58f30',
-    'diffEditor.removedLineBackground': '#f0786c14',
-    'diffEditor.removedTextBackground': '#f0786c30',
-    'diffEditor.diagonalFill': '#3a2e2666',
-    'scrollbarSlider.background': '#ffe4c81f',
-    'scrollbarSlider.hoverBackground': '#ffe4c838'
-  }
-})
+// Tema del editor armado con los colores del tema de la app (lib/themes.ts), así sigue también
+// los colores que cambie el usuario. Monaco pide colores #rrggbb o #rrggbbaa.
+const alpha = (hex: string, amount: number) => hex + Math.round(amount * 255).toString(16).padStart(2, '0')
 
-/** Tema del editor según el tema de la app (lo llama lib/appearance.tsx). */
-export function setMonacoTheme(dark: boolean): void {
-  monaco.editor.setTheme(dark ? 'gitono-dark' : 'gitono-light')
+/** Aplica el tema del editor (lo llama lib/appearance.tsx cada vez que cambian los colores). */
+export function setMonacoTheme(colors: ThemeColors, dark: boolean): void {
+  monaco.editor.defineTheme('gitono', {
+    base: dark ? 'vs-dark' : 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': colors.panel,
+      'editor.foreground': colors.text,
+      'editorGutter.background': colors.panel,
+      'editorLineNumber.foreground': alpha(colors.text3, 0.75),
+      'editorLineNumber.activeForeground': colors.text2,
+      'editor.selectionBackground': alpha(colors.accent, dark ? 0.3 : 0.25),
+      'editor.lineHighlightBackground': alpha(colors.text, 0.04),
+      'diffEditor.insertedLineBackground': alpha(colors.added, 0.09),
+      'diffEditor.insertedTextBackground': alpha(colors.added, 0.2),
+      'diffEditor.removedLineBackground': alpha(colors.deleted, 0.09),
+      'diffEditor.removedTextBackground': alpha(colors.deleted, 0.2),
+      'diffEditor.diagonalFill': alpha(colors.text3, 0.25),
+      'scrollbarSlider.background': alpha(colors.text, 0.12),
+      'scrollbarSlider.hoverBackground': alpha(colors.text, 0.22)
+    }
+  })
+  monaco.editor.setTheme('gitono')
 }
 
 /** Elige el resaltado de sintaxis según el nombre o la extensión del archivo. */

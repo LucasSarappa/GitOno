@@ -4,6 +4,173 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-24 — Sesión 5: temas, paneles acomodables y menos carga visual (v0.6)
+
+### Qué se hizo
+
+- **Evaluación de la interfaz** con el método `/evaluate` de [Design with Intent](https://designwithintent.ai/), escrita en `docs/evaluacion-ux.md`. Lo que más pesaba frente a GitKraken:
+  - etiquetas de rama de color saturado;
+  - tres columnas que GitKraken no muestra por defecto;
+  - tres barras antes del contenido;
+  - paneles como tarjetas flotantes.
+- **Menos carga visual, más GitKraken** (con la skill Impeccable, modo Operate, guías "quieter" y "distill"):
+  - paneles pegados con líneas de 1 px, y el vidrio como opción;
+  - por defecto, solo Rama / tag, Gráfico y Mensaje, con la foto del autor en el nodo;
+  - etiquetas con tinte suave (solo la rama actual va llena) y los íconos a la derecha;
+  - encabezados en versalitas y barra de herramientas con el nombre debajo del ícono;
+  - la búsqueda pasó a la barra principal, así desapareció una barra;
+  - fila WIP con íconos y cantidades.
+- **Rama fantasma** (`lib/ghost.ts`): al pasar por un commit sin etiquetas, su rama más cercana aparece tenue. También está la **lista desplegable** de las etiquetas "+N".
+- **Temas** (`lib/themes.ts`, `ThemeEditor`):
+  - ocho temas, cuatro claros y cuatro oscuros;
+  - cada color se puede cambiar, en vivo, con aviso de contraste;
+  - un tema se copia y se pega como texto;
+  - Monaco y la barra nativa siguen al tema.
+- **Cuadros acomodables** (`lib/dock.ts`):
+  - el panel de ramas, el de detalle y el gráfico se arrastran a cualquier borde, con una vista previa del destino;
+  - seis disposiciones listas en el menú Disposición;
+  - cada panel también se mueve u oculta desde su botón ⋯, sin arrastrar.
+- **Extras**, pensando en lo que se critica de GitKraken (falta de progreso en las operaciones largas) y en lo que faltaba:
+  - progreso de pull, push y fetch;
+  - fetch automático (apagado de entrada);
+  - búsqueda en el código de los commits (`git log -S`);
+  - paleta de comandos (Ctrl+P);
+  - abrir el repo en el explorador, una terminal o VS Code;
+  - zoom (Ctrl+= / Ctrl+− / Ctrl+0);
+  - lista de atajos.
+- Versión 0.6.0.
+
+### Decisiones
+
+- **Colores base y derivados:** un tema define 21 colores; bordes, hover, selección, vidrio y sombras salen de ellos con `color-mix`. Así un tema personalizado nunca queda a medias, y no hace falta una pantalla con 40 colores.
+- **Crema y Cacao siguen siendo los de fábrica.** Abismo (azul y turquesa) existe para quien viene de GitKraken, como tema elegible y no como identidad.
+- **El vidrio pasó a estar apagado por defecto,** porque el pedido era menos carga visual y más parecido a GitKraken. Quien lo tenía prendido por defecto pasa a pegados una sola vez (migración de preferencias); se vuelve a prender en Apariencia.
+- **Una sola grilla para los tres cuadros:** con contenedores anidados, mover u ocultar un panel recreaba el gráfico y se perdía el scroll. Con áreas de grilla calculadas, todos son hijos directos de la misma grilla.
+- **Arrastrar con eventos de puntero, no con el drag and drop de HTML:** se puede dibujar la vista previa del destino y cancelar con Esc.
+- **Fetch automático apagado de entrada:** es un pedido de red, y el principio del producto es que todo pedido de red sea explícito.
+- **Skills de diseño:**
+  - **Impeccable**, otra vez sin su lanzador (solo instrucciones): se leyeron `PRODUCT.md`, `DESIGN.md` y el brief directamente, y las guías Operate, Quieter, Distill, Colorize y Craft floor.
+  - **Design with Intent:** se bajó su repo (licencia CC0) al scratchpad, sin instalar ni ejecutar nada, y se aplicó el método de `/evaluate`.
+
+### Cómo se probó
+
+- **186 tests automáticos** (antes 145). Los nuevos:
+  - los ocho temas con contraste WCAG AA (Solar no pasaba: el azul del acento se oscureció);
+  - la grilla de cada disposición;
+  - la rama fantasma;
+  - la búsqueda difusa;
+  - el progreso de Git;
+  - la búsqueda en el código contra un repo real.
+- **En la app,** con una carpeta de datos aparte y controlándola por CDP:
+  - Cacao pegado, Cacao con vidrio, Abismo con un color cambiado y Papel claro;
+  - rama fantasma y lista desplegable;
+  - arrastrar el detalle abajo del gráfico, el preset de ramas arriba y volver a la clásica;
+  - paleta de comandos;
+  - búsqueda en el código;
+  - Comparar pegado.
+- `npm run typecheck` y `npm run build` sin errores.
+
+### Problemas encontrados y cómo se resolvieron
+
+- **La interfaz no arrancaba:** a las etiquetas se les pasaban todas las props de la lista con `{...props}`, y eso pisaba `labels` con el mapa completo. Ahora se pasan solo los cuatro manejadores.
+- **La migración del vidrio no corría:** `loadSetting` completa con los valores por defecto, que ya traían la versión nueva. Ahora la base se carga con versión 0.
+- **Rama fantasma sin texto** cuando era la rama actual: tomaba el color de texto de la etiqueta llena sobre su fondo tenue. El fantasma nunca se pinta como rama actual.
+- **Comparar, con paneles pegados,** quedaba con franjas de 8 px: el ancho del divisor ahora es una variable (`--split`).
+- **El panel de ramas arriba o abajo** era una sola columna angosta: ahora reparte sus secciones en columnas.
+
+### Pendiente
+
+- Probar temas, disposición y "abrir en" (terminal y VS Code) en macOS y Linux.
+- El panel de detalle abajo es bajo y su encabezado ocupa mucho: conviene una versión horizontal.
+- Preferencias por repo (hoy columnas, disposición y temas valen para todos).
+- Lo que queda de la etapa 3 (stashes en el gráfico, borrar varias ramas, fijar ramas) y la etapa 4.
+
+---
+
+## 2026-10-24 — Sesión 4: operaciones con clic derecho, Deshacer e interfaz ajustable (v0.5)
+
+### Qué se hizo
+
+- **Incidente con el instalador de la 0.4.0 (primero):**
+  - Al instalarla, el instalador encontró registrada una instalación vieja y ejecutó su desinstalador, que apuntaba a la carpeta del proyecto.
+  - El desinstalador movió los archivos del proyecto a una carpeta temporal para borrarlos. Se frenó en `resources/app.asar`, que estaba en uso, y devolvió todo salvo cuatro archivos: `README.md`, `PRODUCT.md`, `package.json` y `package-lock.json`.
+  - Esos cuatro estaban en el último commit sin cambios, así que se restauraron con `git restore`. Se verificó el repo (`git fsck`), los tests y el typecheck.
+  - La 0.4.0 quedó instalada para todos los usuarios en `C:\Program Files\GitOno`, y el registro apunta ahí.
+  - **Protección nueva** (`build/installer.nsh`): el desinstalador se niega a borrar una carpeta con `.git` o `package.json`.
+- **Operaciones, con clic derecho como en GitKraken** (`main/git/ops.ts`, `views/useRepoActions.tsx`):
+  - **Ramas:**
+    - checkout (de remotas crea la local que la sigue; si hay cambios que se pisarían, ofrece stash);
+    - crear, renombrar y borrar (también en el servidor);
+    - elegir la rama remota que sigue;
+    - avanzar una rama hasta su remota sin cambiarte de rama.
+  - **Integrar:** merge (normal, `--no-ff`, `--ff-only`), rebase, cherry-pick, revert y reset suave, mixto y duro.
+  - **Servidor:** pull en tres modos, push (publica las ramas nuevas y ofrece `--force-with-lease` si el servidor rechaza) y fetch.
+  - **Tags:** livianos y anotados; subir y borrar, también en el servidor.
+  - **Stash:** guardar, aplicar, sacar, ver, cambiar el mensaje y borrar. Los stashes están en el panel de ramas.
+  - **Otros:** guardar un commit como `.patch`; abrir en GitHub o GitLab y crear el pull request o merge request; copiar nombre, SHA, enlace y mensaje.
+  - **Menús** en ramas (gráfico y panel), tags, commits, la fila WIP y stashes, y al soltar una rama sobre otra (mergear, rebasear, avance rápido, comparar). Doble clic en una rama hace checkout.
+- **Barra de herramientas:** Deshacer, Rehacer, Pull (con menú: fetch, tres modos y el modo por defecto), Push con commits para subir y bajar, Rama, Stash y Pop.
+- **Deshacer y Rehacer** (Ctrl+Z / Ctrl+Y) de casi todo, con un aviso abajo que ofrece deshacer lo último.
+- **Operaciones a medio hacer:** un aviso arriba dice si un merge, rebase, cherry-pick o revert quedó con conflictos, muestra los archivos y tiene Abortar y Continuar.
+- **Interfaz ajustable:**
+  - paneles laterales que se ensanchan arrastrando el borde y se ocultan (Ctrl+K y Ctrl+J);
+  - columnas del historial que se ensanchan, se reordenan y se eligen con clic derecho en el encabezado;
+  - ramas ocultas en el gráfico (el ojo del panel) o solo algunas a la vista.
+- **Panel de ramas:** commits para subir (↑) y bajar (↓) de cada rama local, y las secciones cerradas se recuerdan.
+- Versión 0.5.0.
+
+### Decisiones
+
+- **Las operaciones viven en `git/ops.ts`, sin Electron,** igual que el resto del núcleo: se prueban con Node contra repos reales.
+- **Los conflictos no son errores:** las operaciones que pueden frenarse devuelven `'done'` o `'conflicts'`. Con conflictos, la interfaz no muestra un error rojo sino el aviso de operación a medio hacer.
+- **Git nunca abre un editor:** `GIT_EDITOR=true` en todos los comandos. Si un comando quisiera editar un mensaje (`rebase --continue`, por ejemplo), toma el que propone Git en vez de quedar colgado hasta el límite de tiempo.
+- **Deshacer sin reflog:** cada operación sabe cómo deshacerse y rehacerse.
+  - Las que mueven HEAD vuelven al commit de antes con `reset --keep`, que se niega si pisaría cambios sin commitear.
+  - Antes de deshacer se verifica que el repo siga en la misma rama, para no mover otra.
+  - Descartar todo guarda los cambios en un stash y lo borra, así Deshacer los recupera.
+  - La pila es por repo, guarda 50 operaciones y se pierde al cerrar la app.
+- **Menú contextual y diálogos propios,** no los nativos de Electron: siguen el tema y el vidrio, tienen íconos y submenús, y el diálogo muestra los errores sin cerrarse (por ejemplo, "la rama tiene commits sin mergear: marcá la opción para borrarla igual").
+- **Merge y rebase con el nombre corto** de la rama cuando no es ambiguo: así Git escribe "Merge branch 'feature'" y no "Merge branch 'refs/heads/feature'".
+- **Avanzar una rama que no es la actual** con `update-ref` y el valor viejo, después de comprobar que es avance rápido: no hace falta cambiar de rama y falla si la rama se movió en el medio.
+- **Ramas ocultas por la entrada estándar** (`git log --stdin`): las referencias a mostrar no se pasan como argumentos, así no hay que escapar nombres raros ni hay límite de largo.
+- **El aviso con Deshacer va abajo a la izquierda:** abajo a la derecha tapaba el botón de commit.
+
+### Cómo se probó
+
+- **145 tests automáticos** (antes 107). Los nuevos:
+  - `git/ops.test.ts`: 20 escenarios contra un clon real y un remoto "bare": ramas, merge con conflictos (continuar y abortar), rebase con conflicto, cherry-pick y revert de merges, resets, tags en el servidor, stash, push de una rama nueva, pull, push rechazado y forzado, y el filtro de ramas ocultas;
+  - parsers de la remota que sigue cada rama y de los commits para subir y bajar;
+  - columnas, pila de deshacer, enlaces de GitHub/GitLab y limpieza de menús.
+- **En la app,** sobre un repo de ejemplo con remoto, controlando la ventana por CDP con una carpeta de datos aparte:
+  - menús de rama, commit (con el submenú de reset), stash, encabezado de columnas y Pull;
+  - crear una rama desde el diálogo, deshacer, rehacer y volver a deshacer;
+  - stash y pop desde la barra;
+  - merge con conflicto: aviso, Ver archivos, resolver y Continuar;
+  - push al remoto;
+  - borrar una rama sin mergear (el error queda en el diálogo);
+  - soltar una rama sobre otra, doble clic para checkout y Ctrl+K;
+  - ensanchar columnas y paneles, y ocultar columnas.
+
+  Todo en oscuro con vidrio y en claro sin vidrio, sin errores en la consola.
+- `npm run typecheck`, `npm run build` y `npm run dist` (que compila `installer.nsh`) sin errores.
+
+### Problemas encontrados y cómo se resolvieron
+
+- **Mensaje del merge con "# Conflicts:":** al continuar un merge con `commit --no-edit`, Git dejaba en el mensaje las líneas de comentario con los archivos en conflicto. Se usa `--cleanup=strip`, como cuando se confirma desde el editor. Lo cubre un test.
+- **Renombrar el stash de arriba:** guardarlo de nuevo con `stash store` no agrega nada si ya es el primero (el SHA no cambia). Ahora se borra primero y después se vuelve a guardar; si eso falla, se restaura con el mensaje viejo.
+- **"En ramas" desactualizado:** el detalle de un commit seguía mostrando una rama recién borrada. Ahora se vuelve a calcular cuando cambian las ramas.
+- **Test de revert de un merge:** el cherry-pick del test se hacía en el mismo segundo que el commit original y daba un commit idéntico, así que el merge no tenía nada que hacer. Se separó el caso.
+- **Detalles visuales:** la última letra en cursiva de la fila WIP se cortaba, la fecha de un stash quedaba tapada y los nombres de los botones de la barra se ocultaban demasiado pronto.
+
+### Pendiente
+
+- **Instalador:** no se sabe por qué la 0.3.0 quedó registrada en la carpeta del proyecto. Desde la 0.4.0 está en `C:\Program Files\GitOno` y la protección nueva frena cualquier desinstalación sobre un proyecto. Borrar `resources/` de la raíz después de reiniciar la app de Claude.
+- **De la etapa 3:** stashes como nodos del gráfico, progreso de pull, push y fetch, fetch automático, borrar varias ramas juntas y fijar ramas a la izquierda.
+- **Etapa 4:** conflictos en tres paneles dentro de la app, rebase interactivo, historial y blame de un archivo, paleta de comandos y zoom.
+- Probar en macOS y Linux.
+
+---
+
 ## 2026-10-23 — Sesión 3: rediseño, pestañas, avatares y linaje de ramas (v0.4)
 
 ### Qué se hizo

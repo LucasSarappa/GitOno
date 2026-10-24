@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RepoInfo } from '../../shared/types'
 import { api } from './api'
+import { ContextMenuProvider } from './components/ContextMenu'
+import { DialogProvider } from './components/Dialog'
 import { TitleBar } from './components/TitleBar'
 import { Welcome } from './components/Welcome'
-import { AppearanceProvider } from './lib/appearance'
+import { AppearanceProvider, useAppearance } from './lib/appearance'
 import { rememberRecent } from './lib/recent'
 import { loadSetting, saveSetting } from './lib/settings'
 import { RepoWorkspace } from './views/RepoWorkspace'
@@ -19,7 +21,11 @@ const newTab = (repo: RepoInfo | null = null): Tab => ({ id: crypto.randomUUID()
 export function App() {
   return (
     <AppearanceProvider>
-      <Shell />
+      <DialogProvider>
+        <ContextMenuProvider>
+          <Shell />
+        </ContextMenuProvider>
+      </DialogProvider>
     </AppearanceProvider>
   )
 }
@@ -28,6 +34,7 @@ function Shell() {
   const [tabs, setTabs] = useState<Tab[]>(() => [newTab()])
   const [activeId, setActiveId] = useState(() => tabs[0].id)
   const [restored, setRestored] = useState(false)
+  const { zoomBy } = useAppearance()
   const [error, setError] = useState<string | null>(null)
 
   // Al abrir: las pestañas de la última vez, más la carpeta pasada por línea de comandos.
@@ -134,6 +141,9 @@ function Shell() {
       if (key === 't') addTab()
       else if (key === 'w') closeTab(activeId)
       else if (key === 'o') void pickRepo()
+      else if (e.key === '=' || e.key === '+') zoomBy(1)
+      else if (e.key === '-') zoomBy(-1)
+      else if (e.key === '0') zoomBy(0)
       else if (e.key === 'Tab') {
         const index = tabs.findIndex((t) => t.id === activeId)
         const next = (index + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length
@@ -143,7 +153,7 @@ function Shell() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tabs, activeId, addTab, closeTab, pickRepo])
+  }, [tabs, activeId, addTab, closeTab, pickRepo, zoomBy])
 
   return (
     <div className="app" data-platform={api.platform}>

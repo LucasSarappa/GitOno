@@ -1,7 +1,7 @@
 {
   "name": "gitono",
   "productName": "GitOno",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Cliente Git gratuito para comparar ramas lado a lado, con soporte para GitHub, GitLab y más.",
   "author": "Lucas Sarappa",
   "license": "MIT",

@@ -16,6 +16,8 @@ const MAX_BRANCHES = 6
 interface Props {
   root: string
   sha: string
+  /** Cambia cuando cambian las ramas: "En ramas" se vuelve a calcular. */
+  refsVersion: number
   selectedPath: string | null
   onOpenFile(change: FileChange, details: Details): void
   onSelectCommit(sha: string): void
@@ -24,7 +26,7 @@ interface Props {
 }
 
 /** Panel derecho del historial: mensaje, autor, ramas, padres y archivos del commit elegido. */
-export function CommitDetails({ root, sha, selectedPath, onOpenFile, onSelectCommit, onSelectBranch }: Props) {
+export function CommitDetails({ root, sha, refsVersion, selectedPath, onOpenFile, onSelectCommit, onSelectBranch }: Props) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [branches, setBranches] = useState<string[] | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
@@ -33,12 +35,20 @@ export function CommitDetails({ root, sha, selectedPath, onOpenFile, onSelectCom
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
-    setBranches(null)
     setCopied(false)
     api.commitDetails(root, sha).then(
       (details) => !cancelled && setState({ status: 'ready', details }),
       (error: Error) => !cancelled && setState({ status: 'error', message: error.message })
     )
+    return () => {
+      cancelled = true
+    }
+  }, [root, sha])
+
+  // Las ramas que contienen el commit cambian al crear, borrar o mover ramas.
+  useEffect(() => {
+    let cancelled = false
+    setBranches(null)
     api.branchesContaining(root, sha).then(
       (list) => !cancelled && setBranches(list),
       () => !cancelled && setBranches([])
@@ -46,7 +56,7 @@ export function CommitDetails({ root, sha, selectedPath, onOpenFile, onSelectCom
     return () => {
       cancelled = true
     }
-  }, [root, sha])
+  }, [root, sha, refsVersion])
 
   const tree = useMemo(() => (state.status === 'ready' ? buildTree(state.details.files) : []), [state])
 
@@ -66,7 +76,7 @@ export function CommitDetails({ root, sha, selectedPath, onOpenFile, onSelectCom
   }
 
   const copySha = () => {
-    void navigator.clipboard.writeText(details.sha).then(() => setCopied(true))
+    void api.copyText(details.sha).then(() => setCopied(true))
   }
 
   return (

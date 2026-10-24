@@ -1,35 +1,138 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-23T00:00:00.000Z",
+  "generatedAt": "2026-10-24T00:00:00.000Z",
   "title": "Design System: GitOno",
   "extensions": {
     "colorMeta": {
-      "caramel": { "role": "primary", "displayName": "Caramelo", "canonical": "#a35f2a", "tonalRamp": ["#3a200c", "#5a3114", "#7c441d", "#a35f2a", "#c07c44", "#d69b67", "#e8bf96", "#f6e3cd"] },
-      "caramel-glow": { "role": "primary", "displayName": "Caramelo claro (oscuro)", "canonical": "#e2a26a" },
-      "apricot-focus": { "role": "primary", "displayName": "Damasco de foco", "canonical": "#c98f5e" },
-      "cream-ground": { "role": "neutral", "displayName": "Crema de fondo", "canonical": "#eee6dc", "tonalRamp": ["#2a1f18", "#4a3a30", "#6e5c50", "#9a8676", "#c4b2a3", "#ddd0c3", "#eee6dc", "#fbf7f2"] },
-      "cocoa-ground": { "role": "neutral", "displayName": "Fondo cacao", "canonical": "#16110e", "tonalRamp": ["#0b0807", "#16110e", "#211a16", "#2c231d", "#3a2e26", "#5a4a3e", "#a28e7e", "#f3e9df"] },
-      "added": { "role": "tertiary", "displayName": "Verde agregado", "canonical": "#2f8a57" },
-      "deleted": { "role": "tertiary", "displayName": "Rojo borrado", "canonical": "#c2453a" },
-      "modified": { "role": "tertiary", "displayName": "Ámbar modificado", "canonical": "#a7720f" },
-      "renamed": { "role": "tertiary", "displayName": "Azul renombrado", "canonical": "#2f6fbf" }
+      "caramel": {
+        "role": "primary",
+        "displayName": "Caramelo",
+        "canonical": "#a35f2a",
+        "tonalRamp": [
+          "#3a200c",
+          "#5a3114",
+          "#7c441d",
+          "#a35f2a",
+          "#c07c44",
+          "#d69b67",
+          "#e8bf96",
+          "#f6e3cd"
+        ]
+      },
+      "caramel-glow": {
+        "role": "primary",
+        "displayName": "Caramelo claro (oscuro)",
+        "canonical": "#e2a26a"
+      },
+      "apricot-focus": {
+        "role": "primary",
+        "displayName": "Damasco de foco",
+        "canonical": "#c98f5e"
+      },
+      "cream-ground": {
+        "role": "neutral",
+        "displayName": "Crema de fondo",
+        "canonical": "#eee6dc",
+        "tonalRamp": [
+          "#2a1f18",
+          "#4a3a30",
+          "#6e5c50",
+          "#9a8676",
+          "#c4b2a3",
+          "#ddd0c3",
+          "#eee6dc",
+          "#fbf7f2"
+        ]
+      },
+      "cocoa-ground": {
+        "role": "neutral",
+        "displayName": "Fondo cacao",
+        "canonical": "#16110e",
+        "tonalRamp": [
+          "#0b0807",
+          "#16110e",
+          "#211a16",
+          "#2c231d",
+          "#3a2e26",
+          "#5a4a3e",
+          "#a28e7e",
+          "#f3e9df"
+        ]
+      },
+      "added": {
+        "role": "tertiary",
+        "displayName": "Verde agregado",
+        "canonical": "#2f8a57"
+      },
+      "deleted": {
+        "role": "tertiary",
+        "displayName": "Rojo borrado",
+        "canonical": "#c2453a"
+      },
+      "modified": {
+        "role": "tertiary",
+        "displayName": "Ámbar modificado",
+        "canonical": "#a7720f"
+      },
+      "renamed": {
+        "role": "tertiary",
+        "displayName": "Azul renombrado",
+        "canonical": "#2f6fbf"
+      }
     },
     "typographyMeta": {
-      "title": { "displayName": "Título", "purpose": "Asunto del commit en el detalle y títulos de panel." },
-      "body": { "displayName": "Cuerpo", "purpose": "Toda la interfaz." },
-      "label": { "displayName": "Etiqueta", "purpose": "Títulos de sección, encabezados de columna y etiquetas de ramas." },
-      "mono": { "displayName": "Mono", "purpose": "SHA, código, diffs y atajos de teclado." }
+      "title": {
+        "displayName": "Título",
+        "purpose": "Asunto del commit en el detalle y títulos de panel."
+      },
+      "body": {
+        "displayName": "Cuerpo",
+        "purpose": "Toda la interfaz."
+      },
+      "label": {
+        "displayName": "Etiqueta",
+        "purpose": "Títulos de sección, encabezados de columna y etiquetas de ramas."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "SHA, código, diffs y atajos de teclado."
+      }
     },
     "shadows": [
-      { "name": "panel", "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 10px 28px -16px rgba(74,44,22,0.32), 0 2px 6px -3px rgba(74,44,22,0.1)", "purpose": "Paneles de vidrio, barra de herramientas y pestaña activa (tema claro)." },
-      { "name": "pop", "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 22px 48px -18px rgba(60,35,18,0.42), 0 4px 12px -4px rgba(60,35,18,0.14)", "purpose": "Menús emergentes (tema claro)." },
-      { "name": "glass", "value": "backdrop-filter: blur(28px) saturate(160%)", "purpose": "Material de los paneles; se apaga con el vidrio desactivado o con prefers-reduced-transparency." }
+      {
+        "name": "panel",
+        "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 10px 28px -16px rgba(74,44,22,0.32), 0 2px 6px -3px rgba(74,44,22,0.1)",
+        "purpose": "Paneles de vidrio, barra de herramientas y pestaña activa (tema claro)."
+      },
+      {
+        "name": "pop",
+        "value": "0 1px 0 rgba(255,255,255,0.7) inset, 0 22px 48px -18px rgba(60,35,18,0.42), 0 4px 12px -4px rgba(60,35,18,0.14)",
+        "purpose": "Menús emergentes (tema claro)."
+      },
+      {
+        "name": "glass",
+        "value": "backdrop-filter: blur(28px) saturate(160%)",
+        "purpose": "Material de los paneles; se apaga con el vidrio desactivado o con prefers-reduced-transparency."
+      }
     ],
     "motion": [
-      { "name": "ease", "value": "cubic-bezier(0.2, 0.8, 0.2, 1)", "purpose": "Transiciones de estado (150–180 ms)." },
-      { "name": "pop-in", "value": "160ms, opacity + translateY(-4px) scale(0.98)", "purpose": "Aparición de menús y de la tarjeta de linaje." }
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Transiciones de estado (150–180 ms)."
+      },
+      {
+        "name": "pop-in",
+        "value": "160ms, opacity + translateY(-4px) scale(0.98)",
+        "purpose": "Aparición de menús y de la tarjeta de linaje."
+      }
     ],
-    "breakpoints": [{ "name": "compacto", "value": "1240px" }]
+    "breakpoints": [
+      {
+        "name": "compacto",
+        "value": "1240px"
+      }
+    ]
   },
   "components": [
     {
@@ -83,7 +186,7 @@
   ],
   "narrative": {
     "northStar": "Ono, vidrio cálido",
-    "overview": "GitOno conserva la organización de GitKraken: pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro y detalle a la derecha. El mundo visual cambia: la paleta sale del pelaje de Ono, con neutros crema y damasco, acento caramelo y, en oscuro, tonos cacao y espresso. Los paneles son de vidrio esmerilado y flotan sobre un fondo cálido; el vidrio cumple una función: el contenido pasa desenfocado por debajo de los encabezados fijos. El detalle distintivo es el linaje de la rama.",
+    "overview": "GitOno conserva la organización de GitKraken: pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro y detalle a la derecha, y los tres cuadros se pueden reacomodar. Hay ocho temas (Crema y Cacao, del pelaje de Ono, de fábrica) y cada color se puede cambiar; los demás tonos se derivan de los colores base. Por defecto los paneles van pegados, como en GitKraken; el vidrio esmerilado es opcional. El detalle distintivo es el linaje de la rama.",
     "keyCharacteristics": [
       "Estructura de GitKraken, sin inventar controles: botones, pestañas, selectores y listas estándar.",
       "Paleta cálida en los dos temas. El acento caramelo marca selección, acción principal y foco.",
@@ -92,24 +195,40 @@
       "Letra del sistema para todo y monoespaciada solo para SHA, código y diffs."
     ],
     "rules": [
-      { "name": "La regla del color que trabaja", "body": "El caramelo solo aparece en selección, acción principal, foco y estado activo. Los colores de carril solo identifican ramas. Ningún color es decoración.", "section": "colors" },
-      { "name": "La regla de la paleta compartida", "body": "El color de un carril es el mismo en el nodo, las líneas, el conector y la etiqueta de la rama.", "section": "colors" },
-      { "name": "La regla de una sola voz", "body": "Una sola familia sans para toda la interfaz. La jerarquía sale del peso y de saltos chicos de tamaño.", "section": "typography" },
-      { "name": "La regla del vidrio con contenido", "body": "El desenfoque solo se usa donde algo pasa por debajo. Con el vidrio apagado, todo pasa a ser sólido y nada se rompe.", "section": "elevation" }
+      {
+        "name": "La regla del color que trabaja",
+        "body": "El caramelo solo aparece en selección, acción principal, foco y estado activo. Los colores de carril solo identifican ramas. Ningún color es decoración.",
+        "section": "colors"
+      },
+      {
+        "name": "La regla de la paleta compartida",
+        "body": "El color de un carril es el mismo en el nodo, las líneas, el conector y la etiqueta de la rama.",
+        "section": "colors"
+      },
+      {
+        "name": "La regla de una sola voz",
+        "body": "Una sola familia sans para toda la interfaz. La jerarquía sale del peso y de saltos chicos de tamaño.",
+        "section": "typography"
+      },
+      {
+        "name": "La regla del vidrio con contenido",
+        "body": "El desenfoque solo se usa donde algo pasa por debajo. Con el vidrio apagado, todo pasa a ser sólido y nada se rompe.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do usar el color del carril para todo lo que pertenece a una rama: nodo, líneas, conector y etiqueta.",
       "Do dar el caramelo solo a selección, acción principal, foco y estado activo.",
       "Do usar íconos Lucide de trazo 1,75 (2–2,75 en tamaños de 11–12px) en todos los controles.",
-      "Do probar cada pantalla en claro, en oscuro y con el vidrio apagado.",
+      "Do probar cada pantalla en claro, en oscuro, con y sin vidrio, y con al menos un tema que no sea el de fábrica.",
       "Do ocultar columnas antes que cortar el mensaje del commit."
     ],
     "donts": [
       "Don't usar caracteres Unicode o emojis como íconos (›, ↺, ⇄): se reemplazaron por íconos reales.",
       "Don't poner franjas de color de más de 1px a los costados de filas o bloques. La selección se marca con el fondo.",
       "Don't agregar desenfoque donde no pasa contenido por debajo.",
-      "Don't mostrar controles de funciones que todavía no existen (pull, push, merge… hasta la etapa 3).",
-      "Don't volver al azul marino con neón de GitKraken: el oscuro de GitOno es cacao."
+      "Don't escribir colores fijos fuera de los tokens: no siguen al tema ni a los colores del usuario.",
+      "Don't sumar columnas, barras o bordes por defecto: lo que no está en GitKraken se activa a pedido."
     ]
   }
 }

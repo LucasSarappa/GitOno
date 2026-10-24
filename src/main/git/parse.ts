@@ -73,25 +73,36 @@ export function parseNumstat(output: string): Map<string, LineCounts> {
   return counts
 }
 
-export const REFS_FORMAT = '%(refname)%09%(refname:short)%09%(objectname)%09%(*objectname)'
+export const REFS_FORMAT = '%(refname)%09%(refname:short)%09%(objectname)%09%(*objectname)%09%(upstream)%09%(upstream:track,nobracket)'
 
 /**
- * Parsea `git for-each-ref --format=REFS_FORMAT`. El último campo solo viene en los tags
- * anotados: es el commit al que apunta el tag (el objectname es el del objeto tag).
+ * Parsea `git for-each-ref --format=REFS_FORMAT`. El cuarto campo solo viene en los tags
+ * anotados: es el commit al que apunta el tag (el objectname es el del objeto tag). Los dos
+ * últimos, solo en ramas locales que siguen una remota: cuál es y "ahead 1, behind 2" o "gone".
  */
 export function parseRefs(output: string): RefInfo[] {
   const refs: RefInfo[] = []
   for (const line of output.split('\n')) {
-    const [ref, name, objectName, peeled] = line.trim().split('\t')
+    const [ref, name, objectName, peeled, upstream, track] = line.trim().split('\t')
     if (!ref || !name || !objectName) continue
     // origin/HEAD es solo un puntero a la rama por defecto del remoto
     if (ref.startsWith('refs/remotes/') && ref.endsWith('/HEAD')) continue
     const target = peeled || objectName
-    if (ref.startsWith('refs/heads/')) refs.push({ ref, name, kind: 'local', target })
+    if (ref.startsWith('refs/heads/')) refs.push({ ref, name, kind: 'local', target, ...parseTracking(upstream, track) })
     else if (ref.startsWith('refs/remotes/')) refs.push({ ref, name, kind: 'remote', target })
     else if (ref.startsWith('refs/tags/')) refs.push({ ref, name, kind: 'tag', target })
   }
   return refs
+}
+
+function parseTracking(upstream: string | undefined, track: string | undefined): Partial<RefInfo> {
+  if (!upstream) return {}
+  if (track === 'gone') return { upstream, upstreamGone: true }
+  return {
+    upstream,
+    ahead: Number(/ahead (\d+)/.exec(track ?? '')?.[1] ?? 0),
+    behind: Number(/behind (\d+)/.exec(track ?? '')?.[1] ?? 0)
+  }
 }
 
 // Separador de campos para `git log`: un caracter de control que no aparece en nombres ni mensajes.
@@ -151,7 +162,17 @@ export function looksBinary(content: Buffer): boolean {
  * X es el estado en el índice (preparado) e Y en la carpeta de trabajo; "." significa sin cambios.
  */
 export function parseStatus(output: string): WorkingTreeStatus {
-  const status: WorkingTreeStatus = { head: null, branch: null, staged: [], unstaged: [], conflicted: [] }
+  const status: WorkingTreeStatus = {
+    head: null,
+    branch: null,
+    staged: [],
+    unstaged: [],
+    conflicted: [],
+    upstream: null,
+    ahead: 0,
+    behind: 0,
+    operation: null
+  }
   const tokens = output.split('\0')
   for (let i = 0; i < tokens.length; i++) {
     const entry = tokens[i]
@@ -162,6 +183,13 @@ export function parseStatus(output: string): WorkingTreeStatus {
     } else if (entry.startsWith('# branch.head ')) {
       const name = entry.slice('# branch.head '.length)
       status.branch = name === '(detached)' ? null : name
+    } else if (entry.startsWith('# branch.upstream ')) {
+      status.upstream = entry.slice('# branch.upstream '.length)
+    } else if (entry.startsWith('# branch.ab ')) {
+      // "# branch.ab +2 -1": 2 commits para subir y 1 para bajar.
+      const [ahead, behind] = entry.slice('# branch.ab '.length).split(' ')
+      status.ahead = Math.abs(Number(ahead)) || 0
+      status.behind = Math.abs(Number(behind)) || 0
     } else if (entry.startsWith('1 ')) {
       const fields = entry.split(' ')
       addChange(status, fields[1], fields.slice(8).join(' '))

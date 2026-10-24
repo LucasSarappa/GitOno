@@ -1,36 +1,27 @@
-/* GitOno — "Ono, vidrio cálido".
-   Estructura de GitKraken; paleta del pelaje de Ono (crema, damasco, caramelo; cacao en oscuro);
-   paneles de vidrio esmerilado flotando sobre un fondo cálido. Contrato en .impeccable/surfaces/app.md. */
+/* GitOno.
+   Organización de GitKraken; los colores salen del tema elegido (lib/themes.ts): el tema pone los
+   colores base y acá se derivan los demás. Sin vidrio (lo normal) los paneles van pegados, como en
+   GitKraken; con vidrio, flotan sobre el fondo. Contrato en .impeccable/surfaces/app.md. */
 
 /* ---------- Tokens ---------- */
 
+/* Colores base. Los pone lib/appearance.tsx según el tema y lo que haya cambiado el usuario;
+   estos son los de Crema y Cacao, para el primer instante antes de que corra el script. */
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
   --ground: #eee6dc;
-  --ground-field:
-    radial-gradient(1100px 720px at 8% -12%, rgba(233, 199, 159, 0.55), transparent 62%),
-    radial-gradient(900px 640px at 104% 108%, rgba(214, 182, 156, 0.45), transparent 60%);
-  --glass: rgba(253, 249, 244, 0.7);
-  --glass-strong: rgba(255, 252, 248, 0.88);
-  --solid: #fbf7f2;
+  --panel: #fbf7f2;
   --raised: #ffffff;
-  --sunken: rgba(84, 56, 36, 0.045);
-  --hover: rgba(120, 78, 44, 0.07);
-  --selected: rgba(201, 143, 94, 0.2);
-  --selected-strong: rgba(201, 143, 94, 0.32);
-  --line: rgba(84, 56, 36, 0.12);
-  --line-strong: rgba(84, 56, 36, 0.22);
   --text: #2a1f18;
   --text-2: #66544a;
-  --text-3: #7c6a5d;
+  --text-3: #76655a;
   --accent: #a35f2a;
   --accent-ink: #8a4c1e;
   --accent-on: #ffffff;
-  --focus: #c98f5e;
-  --added: #2f8a57;
-  --deleted: #c2453a;
-  --modified: #a7720f;
+  --added: #2a7d4f;
+  --deleted: #b93d33;
+  --modified: #8f620c;
   --renamed: #2f6fbf;
   --lane-0: #d9822b;
   --lane-1: #3d84c6;
@@ -40,35 +31,19 @@
   --lane-5: #1f9a9a;
   --lane-6: #b8922a;
   --lane-7: #6f7f90;
-  --lane-wip: #a8968a;
-  --highlight-edge: rgba(255, 255, 255, 0.7);
-  --shadow-panel: 0 1px 0 var(--highlight-edge) inset, 0 10px 28px -16px rgba(74, 44, 22, 0.32), 0 2px 6px -3px rgba(74, 44, 22, 0.1);
-  --shadow-pop: 0 1px 0 var(--highlight-edge) inset, 0 22px 48px -18px rgba(60, 35, 18, 0.42), 0 4px 12px -4px rgba(60, 35, 18, 0.14);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
   --ground: #16110e;
-  --ground-field:
-    radial-gradient(1100px 720px at 6% -14%, rgba(201, 143, 94, 0.17), transparent 62%),
-    radial-gradient(900px 640px at 106% 112%, rgba(150, 96, 60, 0.13), transparent 60%);
-  --glass: rgba(36, 28, 23, 0.68);
-  --glass-strong: rgba(42, 33, 27, 0.9);
-  --solid: #211a16;
+  --panel: #211a16;
   --raised: #2c231d;
-  --sunken: rgba(0, 0, 0, 0.18);
-  --hover: rgba(255, 225, 195, 0.06);
-  --selected: rgba(226, 162, 106, 0.17);
-  --selected-strong: rgba(226, 162, 106, 0.28);
-  --line: rgba(255, 228, 200, 0.08);
-  --line-strong: rgba(255, 228, 200, 0.16);
   --text: #f3e9df;
   --text-2: #c4b2a3;
   --text-3: #a28e7e;
   --accent: #e2a26a;
   --accent-ink: #f0b783;
   --accent-on: #2a1709;
-  --focus: #e2a26a;
   --added: #63c58f;
   --deleted: #f0786c;
   --modified: #e6b54a;
@@ -81,13 +56,47 @@
   --lane-5: #4cc6c2;
   --lane-6: #e2c05a;
   --lane-7: #9aaabb;
-  --lane-wip: #8a786b;
-  --highlight-edge: rgba(255, 240, 225, 0.06);
+}
+
+/* Derivados: bordes, estados, vidrio y sombras salen de los colores base, así cualquier tema
+   (también uno personalizado) queda coherente. */
+:root {
+  --solid: var(--panel);
+  --sunken: color-mix(in srgb, var(--text) 5%, transparent);
+  --hover: color-mix(in srgb, var(--text) 7%, transparent);
+  --selected: color-mix(in srgb, var(--accent) 20%, transparent);
+  --selected-strong: color-mix(in srgb, var(--accent) 32%, transparent);
+  --line: color-mix(in srgb, var(--text) 12%, transparent);
+  --line-strong: color-mix(in srgb, var(--text) 22%, transparent);
+  --focus: var(--accent);
+  --lane-wip: var(--text-3);
+  --glass: color-mix(in srgb, var(--panel) 72%, transparent);
+  --glass-strong: color-mix(in srgb, var(--raised) 92%, transparent);
+  --ground-field:
+    radial-gradient(1100px 720px at 8% -12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
+    radial-gradient(900px 640px at 104% 108%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%);
+  --highlight-edge: rgba(255, 255, 255, 0.7);
+  --shadow-panel: 0 1px 0 var(--highlight-edge) inset, 0 10px 28px -16px rgba(40, 28, 20, 0.32), 0 2px 6px -3px rgba(40, 28, 20, 0.1);
+  --shadow-pop: 0 1px 0 var(--highlight-edge) inset, 0 22px 48px -18px rgba(30, 20, 14, 0.42), 0 4px 12px -4px rgba(30, 20, 14, 0.14);
+}
+
+:root[data-theme='dark'] {
+  --sunken: rgba(0, 0, 0, 0.18);
+  --hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --selected: color-mix(in srgb, var(--accent) 17%, transparent);
+  --selected-strong: color-mix(in srgb, var(--accent) 28%, transparent);
+  --line: color-mix(in srgb, var(--text) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--text) 16%, transparent);
+  --glass: color-mix(in srgb, var(--panel) 70%, transparent);
+  --ground-field:
+    radial-gradient(1100px 720px at 6% -14%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
+    radial-gradient(900px 640px at 106% 112%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%);
+  --highlight-edge: rgba(255, 255, 255, 0.06);
   --shadow-panel: 0 1px 0 var(--highlight-edge) inset, 0 16px 36px -20px rgba(0, 0, 0, 0.75);
   --shadow-pop: 0 1px 0 var(--highlight-edge) inset, 0 24px 56px -18px rgba(0, 0, 0, 0.8), 0 4px 14px -4px rgba(0, 0, 0, 0.5);
 }
 
-/* Sin vidrio (elegido en Apariencia, o pedido por el sistema): paneles sólidos y sin desenfoque. */
+/* Sin vidrio (lo normal, o pedido por el sistema): paneles sólidos y sin desenfoque. */
 :root[data-glass='off'] {
   --glass: var(--solid);
   --glass-strong: var(--raised);
@@ -414,7 +423,7 @@ textarea.field {
   border-color: var(--line);
   color: var(--text);
   font-weight: 600;
-  box-shadow: 0 1px 3px -1px rgba(60, 35, 18, 0.25);
+  box-shadow: 0 1px 3px -1px color-mix(in srgb, var(--text) 25%, transparent);
 }
 
 .toggle {
@@ -480,7 +489,7 @@ textarea.field {
   color: #fff;
 }
 :root[data-theme='dark'] .status-badge {
-  color: #1b1410;
+  color: var(--ground);
 }
 .status-badge--added {
   background: var(--added);
@@ -815,7 +824,7 @@ textarea.field {
   text-overflow: ellipsis;
 }
 .toolbar__views {
-  margin-left: auto;
+  flex: none;
 }
 .toolbar__end {
   display: flex;
@@ -926,13 +935,127 @@ textarea.field {
 
 /* ---------- Historial ---------- */
 
+/* Los tres cuadros van en una sola grilla que arma lib/dock.ts (columnas, filas y el área de cada
+   uno). Así se pueden acomodar a cualquier lado sin volver a crear su contenido. */
 .history {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 348px;
-  gap: 8px;
+}
+.history__side,
+.history__details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.history__side > .refs-panel {
+  flex: 1;
+  min-height: 0;
+}
+/* Arriba o abajo, el panel de ramas es ancho y bajo: las secciones van en columnas. */
+.history__side[data-side='top'] .refs-panel__scroll,
+.history__side[data-side='bottom'] .refs-panel__scroll {
+  column-width: 240px;
+  column-gap: 12px;
+}
+.history__side[data-side='top'] .refs-section__header,
+.history__side[data-side='bottom'] .refs-section__header {
+  break-after: avoid;
+}
+.history__details-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+/* Barra de cada panel: el título se agarra para arrastrarlo, y el botón de al lado lo mueve u oculta. */
+.panel-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 4px 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+.dock-grip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  color: var(--text-3);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.dock-grip:hover {
+  color: var(--text-2);
+}
+.panel-bar__title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* En el encabezado del gráfico, la agarradera ocupa el margen izquierdo de la primera columna. */
+.dock-grip--header {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  flex: none;
+  width: 16px;
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+}
+.commit-list__header:hover .dock-grip--header {
+  opacity: 1;
+}
+body.dock-dragging,
+body.dock-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+.dock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+.dock-overlay__preview {
+  position: absolute;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  transition:
+    left 120ms var(--ease),
+    top 120ms var(--ease),
+    width 120ms var(--ease),
+    height 120ms var(--ease);
+}
+.dock-overlay__label {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--raised);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* Panel de ramas */
@@ -1027,23 +1150,25 @@ textarea.field {
   display: flex;
   flex-direction: column;
 }
-.history__toolbar {
+/* Búsqueda del historial, en la barra de herramientas. */
+.toolbar__search {
+  display: contents;
+}
+.history-search {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px 8px 8px;
-  border-bottom: 1px solid var(--line);
+  min-width: 0;
 }
-.history__search {
-  flex: 1;
-  max-width: 380px;
+.history-search__field {
+  width: 260px;
+  min-width: 140px;
+  padding-right: 3px;
 }
-.history__matches {
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.history__count {
-  margin-left: auto;
+.history-search__count {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-3);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1059,11 +1184,6 @@ textarea.field {
   display: flex;
   flex-direction: column;
 }
-.history__details {
-  display: flex;
-  flex-direction: column;
-}
-
 .backbar {
   display: flex;
   align-items: center;
@@ -1145,11 +1265,10 @@ textarea.field {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--text-3);
-}
-.commit-list__header > span {
-  padding: 0 10px;
-  white-space: nowrap;
-  overflow: hidden;
+  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10.5px;
 }
 .commit-list__rows {
   position: relative;
@@ -1223,6 +1342,8 @@ textarea.field {
 .commit-row--wip .commit-row__subject {
   color: var(--text-2);
   font-style: italic;
+  /* La cursiva se inclina hacia la derecha: sin esto se corta la última letra. */
+  padding-right: 3px;
 }
 .commit-row__wip {
   flex: none;
@@ -1275,9 +1396,12 @@ textarea.field {
   min-width: 0;
   max-width: 100%;
   height: 21px;
-  padding: 0 7px;
-  border: 1px solid var(--pill-color, var(--line-strong));
-  border-radius: 6px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--pill-color, var(--line-strong)) 75%, transparent);
+  border-radius: 5px;
+  /* Tinte suave del carril sobre un fondo opaco, para que no se vean las líneas del gráfico debajo. */
+  background: color-mix(in srgb, var(--pill-color, transparent) 16%, var(--panel));
+  color: var(--text);
   font-size: 11.5px;
   font-weight: 600;
   line-height: 1;
@@ -1286,43 +1410,135 @@ textarea.field {
 button.ref-pill {
   cursor: pointer;
 }
+button.ref-pill:hover {
+  background: color-mix(in srgb, var(--pill-color, transparent) 26%, var(--panel));
+}
 .ref-pill__name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ref-pill--local,
-.ref-pill--head {
-  background: var(--pill-color);
-  color: #fff;
+.ref-pill__icons {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 1px;
+  color: var(--text-2);
 }
-:root[data-theme='dark'] .ref-pill--local,
-:root[data-theme='dark'] .ref-pill--head {
-  color: #1b1410;
+.ref-pill > svg:first-child {
+  flex: none;
+  color: var(--pill-color, var(--text-2));
+}
+/* La rama actual es la única con color fuerte. */
+.ref-pill--current,
+button.ref-pill--current:hover {
+  background: var(--pill-color);
+  border-color: var(--pill-color);
+  color: var(--accent-on);
+}
+:root[data-theme='dark'] .ref-pill--current {
+  color: var(--ground);
+}
+.ref-pill--current > svg:first-child,
+.ref-pill--current .ref-pill__icons {
+  color: inherit;
+}
+.ref-pill--head {
+  border-style: dashed;
 }
 .ref-pill--remote {
-  background: color-mix(in srgb, var(--pill-color) 14%, transparent);
-  color: var(--text);
+  background: color-mix(in srgb, var(--pill-color, transparent) 9%, var(--panel));
 }
 .ref-pill--tag {
-  background: var(--glass-strong);
-  border-style: dashed;
-  border-color: var(--text-3);
-  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--panel);
 }
-.ref-pill--current {
-  outline: 1.5px solid var(--pill-color);
-  outline-offset: 2px;
+.ref-pill--tag > svg:first-child {
+  color: var(--text-3);
 }
 .ref-pill--selected {
   outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 .ref-pill--more {
   flex: none;
   padding: 0 5px;
   color: var(--text-2);
   border-color: var(--line-strong);
-  background: none;
+  background: var(--panel);
+}
+/* Rama fantasma: la más cercana que contiene el commit, tenue y punteada. */
+.ref-pill--ghost {
+  opacity: 0.62;
+  border-style: dashed;
+  background: var(--panel);
+}
+.ref-pill--ghost:hover {
+  opacity: 1;
+}
+.ref-pills {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+/* Todas las etiquetas de un commit, desplegadas hacia abajo al apoyar el mouse. */
+.ref-stack {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 120ms var(--ease);
+}
+.ref-stack .ref-pill {
+  max-width: 280px;
+}
+
+/* Foto del autor como nodo del gráfico, con un aro del color del carril (lo dibuja el SVG). */
+.commit-row__graph {
+  position: relative;
+}
+.graph-avatar {
+  position: absolute;
+  top: calc((32px - 20px) / 2);
+  display: flex;
+  pointer-events: none;
+}
+.graph-cell__ring {
+  stroke: none;
+}
+
+/* Fila WIP: cantidades por tipo de cambio, como GitKraken. */
+.wip-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.wip-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wip-count--conflict {
+  color: var(--deleted);
+}
+.wip-count--modified {
+  color: var(--modified);
+}
+.wip-count--added {
+  color: var(--added);
+}
+.wip-count--deleted {
+  color: var(--deleted);
+}
+.wip-count--renamed {
+  color: var(--renamed);
 }
 
 .lineage-mark {
@@ -1979,14 +2195,955 @@ button.ref-pill {
   color: var(--text);
 }
 
+/* ---------- Operaciones: barra, menús, diálogos y avisos ---------- */
+
+/* Divisor entre paneles: ocupa la pista entre ellos y se marca al pasar el mouse. */
+.splitter {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+.splitter--rows {
+  cursor: row-resize;
+}
+.splitter::after {
+  content: '';
+  position: absolute;
+  inset: 12px 2px;
+  border-radius: 999px;
+  transition: background-color 150ms var(--ease);
+}
+.splitter--rows::after {
+  inset: 2px 12px;
+}
+body.resizing-rows,
+body.resizing-rows * {
+  cursor: row-resize !important;
+  user-select: none;
+}
+.splitter:hover::after,
+.splitter:focus-visible::after,
+body.resizing .splitter:active::after {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+body.resizing,
+body.resizing * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+.toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+.toolbar__divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: var(--line-strong);
+}
+/* Como GitKraken: el ícono arriba y el nombre chico abajo. */
+.tool-button {
+  position: relative;
+  flex-direction: column;
+  gap: 2px;
+  height: 42px;
+  min-width: 44px;
+  padding: 0 7px;
+  color: var(--text-2);
+}
+.tool-button__label {
+  font-size: 10.5px;
+  line-height: 1;
+}
+.tool-button__count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.tool-button:hover:not(:disabled) {
+  color: var(--text);
+}
+.tool-button__count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--selected-strong);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.split-button {
+  display: inline-flex;
+  align-items: center;
+}
+.split-button .tool-button {
+  padding-right: 4px;
+}
+.split-button__more {
+  width: 16px;
+  height: 42px;
+  color: var(--text-3);
+}
+.toolbar__busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.branch-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.banner--warning {
+  border-color: color-mix(in srgb, var(--modified) 45%, transparent);
+  background: color-mix(in srgb, var(--modified) 13%, var(--glass-strong));
+}
+.banner--warning > svg {
+  flex: none;
+  color: var(--modified);
+}
+.banner .banner__actions {
+  flex: none;
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* Aviso de que algo terminó, con Deshacer. Abajo a la izquierda, donde no tapa el botón de commit. */
+.toast {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 180ms var(--ease);
+}
+.toast > span {
+  flex: 1;
+}
+
+/* Menú contextual */
+.context-menu {
+  position: fixed;
+  min-width: 220px;
+  max-width: 380px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+  animation: pop-in 120ms var(--ease);
+}
+.context-menu__label {
+  padding: 5px 9px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.context-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  white-space: nowrap;
+  outline: none;
+}
+.context-menu__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.context-menu__item--active:not(:disabled),
+.context-menu__item--open {
+  background: var(--selected);
+}
+.context-menu__item--danger {
+  color: var(--deleted);
+}
+.context-menu__icon {
+  width: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+.context-menu__item--danger .context-menu__icon {
+  color: inherit;
+}
+.context-menu__text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.context-menu__hint {
+  font-size: 11px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-3);
+}
+.context-menu__chevron {
+  color: var(--text-3);
+}
+
+/* Diálogo */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--ground) 45%, transparent);
+  animation: fade-in 140ms var(--ease);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.dialog {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  border-radius: 14px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 160ms var(--ease);
+}
+.dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: -8px;
+}
+.dialog__header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.dialog__description {
+  margin-top: -6px;
+  color: var(--text-2);
+}
+.dialog__field {
+  display: grid;
+  gap: 5px;
+}
+.dialog__field label {
+  font-weight: 600;
+}
+.dialog__field .field {
+  width: 100%;
+}
+.dialog__hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.dialog__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.dialog__check input {
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.dialog__error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--deleted) 12%, transparent);
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+.field--mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.btn--danger {
+  background: var(--deleted);
+  border-color: color-mix(in srgb, var(--deleted) 80%, black);
+  color: #fff;
+  font-weight: 600;
+}
+:root[data-theme='dark'] .btn--danger {
+  color: var(--ground);
+}
+.btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--deleted) 88%, white);
+}
+
+/* Encabezado de columnas: bordes para ensanchar y títulos para mover. */
+.commit-list__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  padding: 0 10px;
+}
+.commit-list__head-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commit-list__head--movable {
+  cursor: grab;
+}
+.commit-list__head--drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.commit-list__head--drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+.col-resizer {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: -4px;
+  z-index: 1;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 3.5px;
+  width: 1px;
+  background: var(--line-strong);
+}
+.col-resizer:hover::after {
+  left: 3px;
+  width: 2px;
+  background: var(--accent);
+}
+.commit-row > .commit-row__graph {
+  padding: 0;
+  height: 100%;
+}
+.ref-pill--drop {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Panel de ramas: ojo para ocultar, cuánto falta subir/bajar y stashes. */
+.ref-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ref-row > .ref-item {
+  flex: 1;
+  min-width: 0;
+  padding-right: 28px;
+}
+.ref-row__eye {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+}
+.ref-row:hover .ref-row__eye,
+.ref-row__eye:focus-visible,
+.ref-row__eye--on {
+  opacity: 1;
+}
+.ref-row__eye:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.ref-item--hidden .ref-item__name {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-3) 60%, transparent);
+}
+.ref-item--drop {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.ref-item__meta {
+  margin-left: auto;
+  padding-left: 6px;
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.tracking {
+  margin-left: auto;
+  padding-left: 6px;
+  flex: none;
+  display: inline-flex;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.tracking > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.ref-row > .ref-item--stash {
+  padding-right: 8px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--selected);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.filter-chip .link {
+  font-family: var(--font);
+}
+.details__stash {
+  padding: 10px 14px 0;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Temas ---------- */
+
+.menu--appearance {
+  width: 344px;
+  overflow-y: auto;
+}
+.menu__separator {
+  height: 1px;
+  margin: 0 -14px;
+  background: var(--line);
+}
+.menu__wide {
+  width: 100%;
+  justify-content: flex-start;
+}
+.menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.zoom-control__value {
+  min-width: 56px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-control__value:hover {
+  background: var(--hover);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+/* Miniatura de un tema: sus propios colores, sin depender del tema activo. */
+.theme-card {
+  display: grid;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  transition: border-color 150ms var(--ease);
+}
+.theme-card:hover {
+  border-color: var(--line-strong);
+}
+.theme-card--chosen,
+.theme-card--chosen:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.theme-card__preview {
+  display: flex;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--tc-ground);
+}
+.theme-card__side {
+  width: 26%;
+  background: color-mix(in srgb, var(--tc-panel) 55%, var(--tc-ground));
+  border-right: 1px solid color-mix(in srgb, var(--tc-text) 10%, transparent);
+}
+.theme-card__rows {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 0 7px;
+  background: var(--tc-panel);
+}
+.theme-card__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.theme-card__row i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+}
+.theme-card__row b {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--tc-text3) 70%, transparent);
+}
+.theme-card__row b.theme-card__selected {
+  background: var(--tc-accent);
+}
+.theme-card__name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.theme-card__name svg {
+  color: var(--accent);
+}
+
+/* Editor de colores: panel lateral que deja ver los cambios en vivo. */
+.theme-editor {
+  position: fixed;
+  top: 52px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 45;
+  width: 352px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 160ms var(--ease);
+}
+.theme-editor__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 10px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.theme-editor__header > div {
+  flex: 1;
+}
+.theme-editor__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.theme-editor__header p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.theme-editor__warning {
+  display: flex;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--modified) 14%, transparent);
+  font-size: 12px;
+}
+.theme-editor__warning svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--modified);
+}
+.theme-editor__warning ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+.theme-editor__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 12px 12px;
+}
+.theme-editor__group h3 {
+  margin: 12px 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.theme-editor__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.theme-editor__spacer {
+  flex: 1;
+}
+.color-row {
+  display: grid;
+  grid-template-columns: auto 1fr 84px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+}
+.color-row:hover {
+  background: var(--hover);
+}
+.color-row__swatch {
+  display: block;
+  width: 30px;
+  height: 22px;
+  cursor: pointer;
+}
+.color-row__swatch input {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+.color-row__swatch input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-row__swatch input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+.color-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.color-row__hex {
+  height: 24px;
+  width: 100%;
+  padding: 0 6px;
+}
+.color-row__hex--invalid {
+  border-color: var(--deleted);
+}
+
+/* ---------- Paleta de comandos, atajos y progreso ---------- */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+  background: color-mix(in srgb, var(--ground) 35%, transparent);
+  animation: fade-in 120ms var(--ease);
+}
+.palette {
+  width: min(620px, calc(100vw - 32px));
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 140ms var(--ease);
+}
+.palette__input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 48px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-3);
+}
+.palette__input input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+}
+.palette__input input::placeholder {
+  color: var(--text-3);
+}
+.palette__list {
+  overflow-y: auto;
+  padding: 6px;
+}
+.palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.palette__item--active {
+  background: var(--selected);
+}
+.palette__icon {
+  width: 16px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+.palette__group {
+  flex: none;
+  min-width: 72px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.palette__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette__hint {
+  font-size: 11px;
+}
+.palette__empty {
+  padding: 16px 12px;
+  color: var(--text-2);
+}
+
+.shortcuts {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+.shortcuts > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: baseline;
+  gap: 12px;
+}
+.shortcuts dt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.shortcuts dd {
+  margin: 0;
+  color: var(--text);
+}
+
+/* El nombre del repo abre "Abrir en…" (carpeta, terminal, VS Code). */
+button.toolbar__name {
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: 2px 6px;
+  margin-left: -6px;
+}
+button.toolbar__name:hover {
+  background: var(--hover);
+}
+
+.toolbar__progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.toolbar__progress-bar {
+  width: 64px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--sunken);
+}
+.toolbar__progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 150ms linear;
+}
+
+/* ---------- Paneles pegados (sin vidrio), como GitKraken ---------- */
+
+/* Una segunda capa neutra para la barra y los paneles de los costados; el gráfico queda en la de
+   los paneles. Entre paneles, una línea de 1 px en lugar de separación con sombra. */
+:root {
+  --sidebar: color-mix(in srgb, var(--panel) 55%, var(--ground));
+  /* Ancho de los divisores entre paneles. */
+  --split: 8px;
+}
+:root[data-glass='off'] {
+  --split: 1px;
+}
+:root[data-glass='off'] body {
+  background: var(--ground);
+}
+:root[data-glass='off'] .workspace {
+  gap: 0;
+  padding: 0;
+}
+:root[data-glass='off'] .workspace > .toolbar,
+:root[data-glass='off'] .workspace .panel {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-glass='off'] .workspace > .toolbar {
+  background: var(--sidebar);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+:root[data-glass='off'] .workspace .refs-panel,
+:root[data-glass='off'] .workspace .history__details {
+  background: var(--sidebar);
+}
+:root[data-glass='off'] .workspace .history__center,
+:root[data-glass='off'] .workspace .compare .panel {
+  background: var(--panel);
+}
+:root[data-glass='off'] .workspace > .banner {
+  border-radius: 0;
+  border-width: 0 0 1px;
+}
+:root[data-glass='off'] .splitter {
+  background: var(--line);
+}
+:root[data-glass='off'] .splitter::after {
+  inset: 0 -3px;
+}
+:root[data-glass='off'] .splitter--rows::after {
+  inset: -3px 0;
+}
+/* Comparar, pegado: sin espacio entre la barra y los paneles, y el divisor como una línea. */
+:root[data-glass='off'] .compare {
+  gap: 0;
+}
+:root[data-glass='off'] .compare__toolbar {
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--line);
+}
+:root[data-glass='off'] .compare__files {
+  background: var(--sidebar);
+}
+:root[data-glass='off'] .compare .resize-handle {
+  position: relative;
+  margin: 0;
+  border-radius: 0;
+  background: var(--line);
+}
+/* La línea mide 1 px, pero se agarra en 7. */
+:root[data-glass='off'] .compare .resize-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;
+}
+:root[data-glass='off'] .commit-list__header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* ---------- Pantallas más angostas ---------- */
 
 @media (max-width: 1240px) {
-  .history {
-    grid-template-columns: 196px minmax(0, 1fr) 316px;
-  }
   .toolbar__views .segmented__item {
     padding: 0 8px;
+  }
+}
+/* Con poco ancho, los botones de la barra muestran solo el ícono (el nombre queda en el tooltip). */
+@media (max-width: 1180px) {
+  .tool-button__label {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .toolbar__busy {
+    display: none;
   }
 }
 

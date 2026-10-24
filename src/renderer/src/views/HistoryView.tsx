@@ -1,29 +1,67 @@
-import { ArrowDown, ArrowLeft, ArrowUp, Search } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { ArrowDown, ArrowLeft, ArrowUp, Code, Columns3, Eye, GripVertical, LayoutDashboard, MoreHorizontal, RotateCcw, Search, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type {
   BranchInsight,
   CommitDetails as Details,
   CommitInfo,
   CommitPage,
   FileChange,
+  GraphFilter,
+  RefInfo,
   RefList,
   RepoInfo,
+  StashInfo,
   WorkingArea,
   WorkingFile,
   WorkingTreeStatus
 } from '../../../shared/types'
 import { api } from '../api'
-import { CommitDetails } from '../components/CommitDetails'
 import { BranchInsightCard } from '../components/BranchInsightCard'
-import { CommitList, WIP_SHA, type LineageMarker, type LineageView, type ScrollRequest, type WipSummary } from '../components/CommitList'
+import { CommitDetails } from '../components/CommitDetails'
+import {
+  CommitList,
+  WIP_SHA,
+  type LineageMarker,
+  type LineageView,
+  type MenuAnchor,
+  type ScrollRequest,
+  type WipSummary
+} from '../components/CommitList'
+import { useContextMenu, type MenuItem } from '../components/ContextMenu'
 import { DiffView, type DiffOptions } from '../components/DiffView'
 import { EmptyState } from '../components/EmptyState'
-import { RefsPanel } from '../components/RefsPanel'
+import { RefsPanel, stashLabel } from '../components/RefsPanel'
+import { Splitter } from '../components/Splitter'
 import { WorkingFileView } from '../components/WorkingFileView'
 import { EMPTY_DRAFT, WorkingTreePanel, type CommitDraft } from '../components/WorkingTreePanel'
+import { COLUMN_LABELS, DEFAULT_COLUMNS, normalizeColumns, type ColumnId, type ColumnsConfig } from '../lib/columns'
 import { shortSha } from '../lib/format'
 import { computeGraph } from '../lib/graph'
 import { labelsByCommit } from '../lib/refs'
+import { useAppearance } from '../lib/appearance'
+import {
+  DEFAULT_LAYOUT,
+  defaultSize,
+  layoutGrid,
+  matchingPreset,
+  moveCenter,
+  movePanel,
+  nearestSide,
+  normalizeLayout,
+  PANEL_NAMES,
+  PRESETS,
+  resizePanel,
+  setPanelOpen,
+  SIDE_NAMES,
+  SIZE_LIMITS,
+  type DockLayout,
+  type PanelId,
+  type Placement,
+  type Side
+} from '../lib/dock'
+import { loadSetting, saveSetting } from '../lib/settings'
+import type { ActionMenus } from './useRepoActions'
 
 /** Commits que se cargan por tanda al bajar por el historial. */
 const PAGE_SIZE = 1000
@@ -31,29 +69,83 @@ const PAGE_SIZE = 1000
 const MAX_COMMITS = 50_000
 const NO_COMMITS: CommitInfo[] = []
 
+/** Disposición guardada por la v0.5 (solo anchos y paneles abiertos), para no perderla. */
+interface OldPanels {
+  left: number
+  right: number
+  leftOpen: boolean
+  rightOpen: boolean
+}
+
+function loadLayout(): DockLayout {
+  const saved = loadSetting<DockLayout | null>('historyLayout', null)
+  if (saved) return normalizeLayout(saved)
+  const old = loadSetting<OldPanels | null>('historyPanels', null)
+  if (!old) return DEFAULT_LAYOUT
+  return normalizeLayout({
+    docks: [
+      { panel: 'refs', side: 'left', size: old.left, open: old.leftOpen },
+      { panel: 'details', side: 'right', size: old.right, open: old.rightOpen }
+    ]
+  })
+}
+
+/** Un panel que se está arrastrando para acomodarlo en otro lugar. */
+interface DockDrag {
+  panel: PanelId | 'center'
+  startX: number
+  startY: number
+  /** Ya se movió lo suficiente como para ser un arrastre (y no un clic). */
+  moving: boolean
+  target: { side: Side; placement: Placement } | null
+}
+
 /** Lo que se muestra en el centro en lugar del gráfico. */
 type Open =
   | { kind: 'commit'; change: FileChange; sha: string; parent: string }
   | { kind: 'working'; file: WorkingFile; area: WorkingArea }
 
+/** Qué mostrar en el historial: un commit o stash, el linaje de una rama o los cambios sin commitear. */
+export type ShowTarget = { kind: 'commit'; sha: string } | { kind: 'branch'; ref: string } | { kind: 'wip' }
+
+/** Pedido desde afuera (la barra, un menú) de mostrar algo; el nonce permite repetir el mismo pedido. */
+export type ShowRequest = ShowTarget & { nonce: number }
+
 interface Props {
   repo: RepoInfo
+  /** La vista Historial está a la vista (la búsqueda va a la barra de herramientas solo entonces). */
+  active: boolean
+  /** Lugar de la barra de herramientas donde va la búsqueda. */
+  searchSlot: HTMLElement | null
   refs: RefList
+  status: WorkingTreeStatus | null
+  /** Sube con cada estado nuevo de la carpeta de trabajo (los diffs locales se releen con él). */
+  statusVersion: number
+  stashes: StashInfo[]
+  /** Ramas ocultas en el gráfico, o las únicas que se muestran. */
+  filter: GraphFilter
+  onFilterChange(filter: GraphFilter): void
   /** Cambia cuando hay que volver a leer el historial (por ejemplo, después de un fetch). */
   reloadKey: number
-  /** Cambia cuando algo cambió en la carpeta de trabajo y hay que releer el estado. */
-  statusKey: number
   options: DiffOptions
+  showRequest: ShowRequest | null
+  menus: ActionMenus
   onOptionsChange(options: DiffOptions): void
   onError(message: string): void
+  onRefreshStatus(): void
   /** Se llama después de un commit: hay que releer ramas e historial. */
   onRepoMutated(): void
+  /** Commit hecho desde el panel de cambios, para poder deshacerlo. */
+  onCommitted(before: string | null, after: string): void
+  onCheckout(ref: string): void
+  onShowAll(): void
   /** Abre la vista Comparar con dos referencias ya elegidas. */
   onCompare(refA: string, refB: string): void
 }
 
 export function HistoryView(props: Props) {
-  const { repo, refs, reloadKey, statusKey, options, onOptionsChange, onError, onRepoMutated, onCompare } = props
+  const { repo, active, searchSlot, refs, status, statusVersion, stashes, filter, reloadKey, options, showRequest, menus, onOptionsChange, onError } = props
+  const { appearance } = useAppearance()
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [page, setPage] = useState<CommitPage | null>(null)
   const [loading, setLoading] = useState(false)
@@ -63,22 +155,32 @@ export function HistoryView(props: Props) {
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null)
   const [open, setOpen] = useState<Open | null>(null)
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<WorkingTreeStatus | null>(null)
-  // Sube cada vez que llega un estado nuevo: los diffs de archivos locales se releen con él.
-  const [statusVersion, setStatusVersion] = useState(0)
-  const [statusNonce, setStatusNonce] = useState(0)
+  // Buscar en el código de los commits (git log -S) en vez de en mensaje, autor y SHA.
+  const [codeSearch, setCodeSearch] = useState(false)
+  const [codeMatches, setCodeMatches] = useState<{ query: string; shas: ReadonlySet<string> } | null>(null)
   const [draft, setDraft] = useState<CommitDraft>(EMPTY_DRAFT)
   // Rama elegida para ver su linaje (de dónde sale, sus commits y dónde se mergeó).
   const [lineageRef, setLineageRef] = useState<string | null>(null)
   const [insight, setInsight] = useState<BranchInsight | null>(null)
+  const [layout, setLayout] = useState<DockLayout>(loadLayout)
+  const [drag, setDrag] = useState<DockDrag | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const centerRef = useRef<HTMLElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const [columns, setColumns] = useState<ColumnsConfig>(() => normalizeColumns(loadSetting('historyColumns', DEFAULT_COLUMNS)))
   const nonce = useRef(0)
   // Commit recién creado: se centra en la lista apenas aparezca.
   const scrollWhenLoaded = useRef<string | null>(null)
+  const menu = useContextMenu()
 
+  useEffect(() => saveSetting('historyLayout', layout), [layout])
+  useEffect(() => saveSetting('historyColumns', columns), [columns])
+
+  const filterKey = JSON.stringify(filter)
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    api.listCommits(repo.root, limit).then(
+    api.listCommits(repo.root, limit, JSON.parse(filterKey) as GraphFilter).then(
       (result) => {
         if (cancelled) return
         setPage(result)
@@ -93,29 +195,25 @@ export function HistoryView(props: Props) {
     return () => {
       cancelled = true
     }
-  }, [repo.root, limit, reloadKey, onError])
+  }, [repo.root, limit, reloadKey, filterKey, onError])
 
-  useEffect(() => {
-    let cancelled = false
-    api.workingStatus(repo.root).then(
-      (result) => {
-        if (cancelled) return
-        setStatus(result)
-        setStatusVersion((v) => v + 1)
-      },
-      (error: Error) => !cancelled && onError(error.message)
-    )
-    return () => {
-      cancelled = true
+  const wip = useMemo((): WipSummary | null => {
+    if (!status || status.staged.length + status.unstaged.length + status.conflicted.length === 0) return null
+    // Cada archivo cuenta una vez por tipo de cambio, aunque tenga una parte preparada y otra no.
+    const kinds = new Map<string, string>()
+    for (const file of [...status.staged, ...status.unstaged]) kinds.set(file.path, file.status)
+    for (const file of status.conflicted) kinds.delete(file.path)
+    const count = (kind: string) => [...kinds.values()].filter((k) => k === kind).length
+    return {
+      staged: status.staged.length,
+      unstaged: status.unstaged.length,
+      conflicted: status.conflicted.length,
+      modified: count('modified') + count('type-changed'),
+      added: count('added') + count('copied'),
+      deleted: count('deleted'),
+      renamed: count('renamed')
     }
-  }, [repo.root, statusKey, statusNonce, onError])
-
-  const refreshStatus = useCallback(() => setStatusNonce((n) => n + 1), [])
-
-  const wip: WipSummary | null =
-    status && status.staged.length + status.unstaged.length + status.conflicted.length > 0
-      ? { staged: status.staged.length, unstaged: status.unstaged.length, conflicted: status.conflicted.length }
-      : null
+  }, [status])
   const hasWip = wip !== null
   const wipParent = status?.head ?? null
 
@@ -129,9 +227,10 @@ export function HistoryView(props: Props) {
   const graph = useMemo(() => computeGraph(rows.map((c) => (c.sha === WIP_SHA ? { ...c, virtual: true } : c))), [rows])
   const labels = useMemo(() => labelsByCommit(refs.refs, refs.current, refs.head), [refs])
   const indexBySha = useMemo(() => new Map(rows.map((c, i) => [c.sha, i])), [rows])
+  const refByName = useMemo(() => new Map(refs.refs.map((r) => [r.ref, r])), [refs])
+  const stashBySha = useMemo(() => new Map(stashes.map((s) => [s.sha, s])), [stashes])
 
-  const requestScroll = (sha: string, align: ScrollRequest['align']) =>
-    setScrollRequest({ sha, align, nonce: ++nonce.current })
+  const requestScroll = (sha: string, align: ScrollRequest['align']) => setScrollRequest({ sha, align, nonce: ++nonce.current })
 
   const selectCommit = (sha: string, align: ScrollRequest['align'] | null) => {
     setOpen(null)
@@ -174,9 +273,9 @@ export function HistoryView(props: Props) {
       setLimit((l) => Math.min(MAX_COMMITS, l + PAGE_SIZE * 5))
     } else {
       setPendingSha(null)
-      onError('Ese commit no aparece en el historial de ramas y tags cargado.')
+      onError(filter.hidden.length + filter.solo.length > 0 ? 'Ese commit está en una rama oculta del gráfico.' : 'Ese commit no aparece en el historial de ramas y tags cargado.')
     }
-  }, [pendingSha, page, loading, indexBySha, limit, onError])
+  }, [pendingSha, page, loading, indexBySha, limit, onError, filter])
 
   // Un archivo local abierto sigue al archivo: si se preparó entero pasa a "preparado", y si ya
   // no tiene cambios se vuelve al gráfico.
@@ -213,9 +312,30 @@ export function HistoryView(props: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  // La búsqueda en el código corre en Git: se espera a que se deje de escribir.
+  useEffect(() => {
+    const text = query.trim()
+    if (!codeSearch || text.length < 2) {
+      setCodeMatches(null)
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      api.searchCode(repo.root, text).then(
+        (shas) => !cancelled && setCodeMatches({ query: text, shas: new Set(shas) }),
+        (error: Error) => !cancelled && onError(error.message)
+      )
+    }, 400)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [codeSearch, query, repo.root, reloadKey, onError])
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return null
+    if (codeSearch) return codeMatches?.query === query.trim() ? codeMatches.shas : null
     const found = commits.filter(
       (c) =>
         c.subject.toLowerCase().includes(q) ||
@@ -224,7 +344,7 @@ export function HistoryView(props: Props) {
         c.sha.startsWith(q)
     )
     return new Set(found.map((c) => c.sha))
-  }, [commits, query])
+  }, [commits, query, codeSearch, codeMatches])
   const matchList = useMemo(() => (matches ? commits.filter((c) => matches.has(c.sha)) : NO_COMMITS), [commits, matches])
   const matchPosition = selectedSha && matches?.has(selectedSha) ? matchList.findIndex((c) => c.sha === selectedSha) + 1 : 0
 
@@ -252,11 +372,12 @@ export function HistoryView(props: Props) {
     setOpen({ kind: 'commit', change, sha: details.sha, parent: details.parents[0] ?? '' })
 
   const onCommitted = (sha: string) => {
+    props.onCommitted(status?.head ?? null, sha)
     setOpen(null)
     setSelectedSha(sha)
     scrollWhenLoaded.current = sha
-    refreshStatus()
-    onRepoMutated()
+    props.onRefreshStatus()
+    props.onRepoMutated()
   }
 
   // Linaje de la rama elegida: se vuelve a calcular si cambian las ramas (fetch, commit…).
@@ -276,20 +397,45 @@ export function HistoryView(props: Props) {
     }
   }, [repo.root, lineageRef, reloadKey, onError])
 
-  const selectBranch = (ref: string) => {
-    if (ref === lineageRef) {
-      setLineageRef(null)
-      return
-    }
+  // Si la rama elegida desaparece (se borró o renombró), se deja de mostrar su linaje.
+  useEffect(() => {
+    if (lineageRef && !refByName.has(lineageRef)) setLineageRef(null)
+  }, [lineageRef, refByName])
+
+  const showBranch = (ref: string) => {
     setInsight(null)
     setLineageRef(ref)
-    const tip = refs.refs.find((r) => r.ref === ref)?.target
+    const tip = refByName.get(ref)?.target
     if (tip) selectCommit(tip, 'center')
+  }
+  const selectBranch = (ref: string) => {
+    if (ref === lineageRef) setLineageRef(null)
+    else showBranch(ref)
   }
   const selectBranchByName = (name: string) => {
     const ref = refs.refs.find((r) => r.name === name)
     if (ref) selectBranch(ref.ref)
   }
+
+  // Un stash no está en el gráfico: se muestra su detalle sin moverse en la lista.
+  const showStash = (sha: string) => {
+    setOpen(null)
+    setSelectedSha(sha)
+  }
+
+  // Pedidos de afuera: ver un commit o stash, el linaje de una rama o los cambios sin commitear.
+  const handledRequest = useRef(0)
+  useEffect(() => {
+    if (!showRequest || showRequest.nonce === handledRequest.current) return
+    handledRequest.current = showRequest.nonce
+    if (showRequest.kind === 'branch') showBranch(showRequest.ref)
+    else if (showRequest.kind === 'wip') {
+      if (hasWip) selectCommit(WIP_SHA, 'center')
+    } else if (indexBySha.has(showRequest.sha)) selectCommit(showRequest.sha, 'center')
+    else showStash(showRequest.sha)
+    // Solo cuando llega un pedido nuevo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRequest])
 
   // Esc deja de resaltar la rama (si hay un archivo abierto, primero se cierra ese).
   useEffect(() => {
@@ -301,6 +447,110 @@ export function HistoryView(props: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [lineageRef, open])
+
+  const togglePanel = useCallback((panel: PanelId) => {
+    setLayout((l) => setPanelOpen(l, panel, !l.docks.find((d) => d.panel === panel)?.open))
+  }, [])
+
+  // Atajos de la pestaña visible: Ctrl+K muestra u oculta el panel de ramas (como en GitKraken),
+  // Ctrl+J el de detalle y Ctrl+F lleva a la búsqueda.
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return
+      const element = document.querySelector(`[data-history-root="${CSS.escape(repo.root)}"]`)
+      if (!element || element.closest('[hidden]')) return
+      const key = e.key.toLowerCase()
+      if (key === 'k') togglePanel('refs')
+      else if (key === 'j') togglePanel('details')
+      else if (key === 'f') {
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      } else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [repo.root, active, togglePanel])
+
+  // ---------- Acomodar los paneles arrastrándolos ----------
+
+  /** Dónde caería el panel arrastrado según la posición del mouse. */
+  const dropTarget = (panel: DockDrag['panel'], x: number, y: number): DockDrag['target'] => {
+    const grid = gridRef.current?.getBoundingClientRect()
+    const center = centerRef.current?.getBoundingClientRect()
+    if (!grid || !center) return null
+    const inside = (r: DOMRect) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+    if (!inside(grid)) return null
+    // Sobre el gráfico: al lado del gráfico (el gráfico mismo, a ese borde de la ventana).
+    if (panel !== 'center' && inside(center)) return { side: nearestSide(center, x, y), placement: 'inner' }
+    return { side: nearestSide(grid, x, y), placement: 'outer' }
+  }
+
+  const startDrag = (panel: DockDrag['panel']) => (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startY = e.clientY
+    // El arrastre vive en una ref (para leerlo al soltar) y se copia al estado para dibujarlo.
+    let current: DockDrag = { panel, startX, startY, moving: false, target: null }
+    setDrag(current)
+    const onMove = (ev: PointerEvent) => {
+      const moving = current.moving || Math.hypot(ev.clientX - startX, ev.clientY - startY) > 5
+      current = { ...current, moving, target: moving ? dropTarget(panel, ev.clientX, ev.clientY) : null }
+      setDrag(current)
+    }
+    const finish = (apply: boolean) => () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey)
+      document.body.classList.remove('dock-dragging')
+      setDrag(null)
+      const { target } = current
+      if (!apply || !current.moving || !target) return
+      setLayout((l) => (panel === 'center' ? moveCenter(l, target.side) : movePanel(l, panel, target.side, target.placement)))
+    }
+    const onUp = finish(true)
+    const onKey = (ev: globalThis.KeyboardEvent) => ev.key === 'Escape' && finish(false)()
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey)
+    document.body.classList.add('dock-dragging')
+  }
+
+  /** Menú de la barra de un panel: moverlo a un lado u ocultarlo (lo mismo que arrastrar, con el teclado). */
+  const openPanelMenu = (panel: PanelId, at: MenuAnchor) => {
+    const dock = layout.docks.find((d) => d.panel === panel)
+    const sides: Side[] = ['left', 'right', 'top', 'bottom']
+    menu.open(at, [
+      { kind: 'label', label: `Panel de ${PANEL_NAMES[panel].toLowerCase()}` },
+      ...sides.map(
+        (side): MenuItem => ({
+          kind: 'check',
+          label: `Ponerlo ${SIDE_NAMES[side]}`,
+          checked: dock?.side === side,
+          onSelect: () => setLayout((l) => movePanel(l, panel, side, 'inner'))
+        })
+      ),
+      { kind: 'separator' },
+      { label: `Ocultarlo (${panel === 'refs' ? 'Ctrl+K' : 'Ctrl+J'})`, icon: X, onSelect: () => togglePanel(panel) }
+    ])
+  }
+
+  /** Menú Disposición de la barra de herramientas. */
+  const openLayoutMenu = (at: MenuAnchor) => {
+    const current = matchingPreset(layout)
+    const isOpen = (panel: PanelId) => layout.docks.find((d) => d.panel === panel)?.open ?? false
+    menu.open(at, [
+      { kind: 'label', label: 'Disposición' },
+      ...PRESETS.map((p): MenuItem => ({ kind: 'check', label: p.label, checked: current === p.id, onSelect: () => setLayout(p.layout) })),
+      { kind: 'separator' },
+      { kind: 'check', label: 'Panel de ramas (Ctrl+K)', checked: isOpen('refs'), onSelect: () => togglePanel('refs') },
+      { kind: 'check', label: 'Panel de detalle (Ctrl+J)', checked: isOpen('details'), onSelect: () => togglePanel('details') },
+      { kind: 'separator' },
+      { label: 'Elegir columnas…', icon: Columns3, onSelect: () => openHeaderMenu(at) }
+    ])
+  }
 
   const lineage = useMemo((): LineageView | null => {
     if (!lineageRef || !insight || insight.ref !== lineageRef) return null
@@ -318,57 +568,201 @@ export function HistoryView(props: Props) {
     return { highlight, markers }
   }, [lineageRef, insight])
 
+  // ---------- Menús de clic derecho ----------
+
+  const openRowMenu = (sha: string, at: MenuAnchor) => {
+    if (sha === WIP_SHA) {
+      menu.open(at, menus.wip())
+      return
+    }
+    const commit = rows[indexBySha.get(sha) ?? -1]
+    if (commit) menu.open(at, menus.commit(commit))
+  }
+  const openRefMenu = (key: string, at: MenuAnchor) => {
+    const ref = refByName.get(key)
+    if (ref) menu.open(at, menus.ref(ref))
+  }
+  const openDropMenu = (source: string, target: string, at: MenuAnchor) => {
+    const from = refByName.get(source)
+    const to = refByName.get(target)
+    if (from && to) menu.open(at, menus.drop(from, to))
+  }
+  /** El ojo del panel: oculta o vuelve a mostrar la rama. Si se están mostrando solo algunas, la suma o la saca. */
+  const toggleHidden = (ref: RefInfo) => {
+    const toggle = (list: string[]) => (list.includes(ref.ref) ? list.filter((r) => r !== ref.ref) : [...list, ref.ref])
+    if (filter.solo.length > 0) props.onFilterChange({ hidden: filter.hidden, solo: toggle(filter.solo) })
+    else props.onFilterChange({ hidden: toggle(filter.hidden), solo: [] })
+  }
+
+  const openHeaderMenu = (at: MenuAnchor) => {
+    const toggle = (id: ColumnId) =>
+      setColumns((c) => ({ ...c, hidden: c.hidden.includes(id) ? c.hidden.filter((h) => h !== id) : [...c.hidden, id] }))
+    const items: MenuItem[] = [
+      { kind: 'label', label: 'Columnas' },
+      ...(Object.keys(COLUMN_LABELS) as ColumnId[]).map(
+        (id): MenuItem => ({ kind: 'check', label: COLUMN_LABELS[id], checked: !columns.hidden.includes(id), disabled: id === 'message', onSelect: () => toggle(id) })
+      ),
+      { kind: 'separator' },
+      {
+        label: 'Ajustar el gráfico a sus carriles',
+        icon: Columns3,
+        disabled: columns.widths.graph === undefined,
+        onSelect: () =>
+          setColumns((c) => {
+            const widths = { ...c.widths }
+            delete widths.graph
+            return { ...c, widths }
+          })
+      },
+      { label: 'Restablecer columnas', icon: RotateCcw, onSelect: () => setColumns(DEFAULT_COLUMNS) }
+    ]
+    menu.open(at, items)
+  }
+
   const workingOpen = open?.kind === 'working' ? open : null
+  const selectedStash = selectedSha ? stashBySha.get(selectedSha) : undefined
+  const filtered = filter.hidden.length + filter.solo.length > 0
+  const grid = layoutGrid(layout, appearance.glass ? '8px' : '1px')
+
+  // Búsqueda, filtro y disposición: van a la barra de herramientas, así no hace falta otra barra.
+  const search = (
+    <div className="history-search">
+      {filtered && (
+        <span className="filter-chip" title="Hay ramas ocultas o se muestran solo algunas">
+          <Eye size={13} strokeWidth={1.75} aria-hidden />
+          {filter.solo.length > 0 ? `Solo ${filter.solo.length === 1 ? '1 rama' : `${filter.solo.length} ramas`}` : `${filter.hidden.length} ocultas`}
+          <button className="link" onClick={props.onShowAll}>
+            mostrar todas
+          </button>
+        </span>
+      )}
+      <label className="field field--search history-search__field" title={`${commits.length.toLocaleString('es-AR')} commits cargados`}>
+        <Search size={14} strokeWidth={1.75} aria-hidden />
+        <input
+          ref={searchRef}
+          type="search"
+          placeholder={codeSearch ? 'Buscar en el código de los commits' : 'Buscar commits (Ctrl+F)'}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={onSearchKeyDown}
+          aria-label="Buscar por mensaje, autor o SHA"
+        />
+        {matches ? (
+          <>
+            <span className="history-search__count" aria-live="polite">
+              {matchList.length === 0 ? 'Sin resultados' : `${matchPosition || '–'} de ${matchList.length}`}
+            </span>
+            <button className="btn btn--icon btn--ghost btn--sm" aria-label="Coincidencia anterior" title="Anterior (Shift+Enter)" onClick={() => goToMatch(-1)}>
+              <ArrowUp size={14} strokeWidth={1.75} />
+            </button>
+            <button className="btn btn--icon btn--ghost btn--sm" aria-label="Coincidencia siguiente" title="Siguiente (Enter)" onClick={() => goToMatch(1)}>
+              <ArrowDown size={14} strokeWidth={1.75} />
+            </button>
+          </>
+        ) : codeSearch && query.trim().length >= 2 ? (
+          <span className="history-search__count">Buscando…</span>
+        ) : (
+          loading && <span className="history-search__count">Cargando…</span>
+        )}
+        <button
+          className={`btn btn--icon btn--ghost btn--sm${codeSearch ? ' btn--pressed' : ''}`}
+          aria-label="Buscar en el código de los commits"
+          aria-pressed={codeSearch}
+          title={codeSearch ? 'Buscando en el código (los commits que agregan o quitan el texto). Clic para buscar en mensajes, autores y SHA.' : 'Buscar en el código de los commits (los que agregan o quitan el texto)'}
+          onClick={() => setCodeSearch((c) => !c)}
+        >
+          <Code size={14} strokeWidth={1.75} />
+        </button>
+      </label>
+      <button
+        className="btn btn--icon btn--ghost"
+        aria-label="Disposición de los paneles"
+        title="Disposición de los paneles"
+        onClick={(e) => openLayoutMenu(e.currentTarget.getBoundingClientRect())}
+      >
+        <LayoutDashboard size={16} strokeWidth={1.75} />
+      </button>
+    </div>
+  )
+
+  const panelBar = (panel: PanelId, title: string, extra?: ReactNode) => (
+    <div className="panel-bar">
+      <span className="dock-grip" title="Arrastrá para poner el panel en otro lugar" onPointerDown={startDrag(panel)}>
+        <GripVertical size={13} strokeWidth={1.75} aria-hidden />
+        <span className="panel-bar__title">{title}</span>
+      </span>
+      {extra}
+      <button
+        className="btn btn--icon btn--ghost btn--sm"
+        aria-label={`Opciones del panel de ${PANEL_NAMES[panel].toLowerCase()}`}
+        title="Moverlo u ocultarlo"
+        onClick={(e) => openPanelMenu(panel, e.currentTarget.getBoundingClientRect())}
+      >
+        <MoreHorizontal size={14} strokeWidth={1.75} />
+      </button>
+    </div>
+  )
+
+  const splitterFor = (panel: PanelId) => {
+    const placed = grid.panels[panel]
+    const dock = layout.docks.find((d) => d.panel === panel)
+    if (!placed || !dock) return null
+    return (
+      <Splitter
+        key={`splitter-${panel}`}
+        side={placed.side}
+        size={dock.size}
+        min={SIZE_LIMITS.min}
+        max={SIZE_LIMITS.max}
+        label={`Tamaño del panel de ${PANEL_NAMES[panel].toLowerCase()}`}
+        style={placed.splitter}
+        onChange={(size) => setLayout((l) => resizePanel(l, panel, size))}
+        onReset={() => setLayout((l) => resizePanel(l, panel, defaultSize(panel, placed.side)))}
+      />
+    )
+  }
 
   return (
-    <div className="history">
-      <RefsPanel refs={refs} selectedRef={lineageRef} onSelectRef={(ref) => selectBranch(ref.ref)} />
+    <div
+      ref={gridRef}
+      className={`history${drag?.moving ? ' history--dragging' : ''}`}
+      data-history-root={repo.root}
+      style={{ gridTemplateColumns: grid.columns, gridTemplateRows: grid.rows }}
+    >
+      {active && searchSlot && createPortal(search, searchSlot)}
 
-      <section className="panel glass history__center">
-        <div className="history__toolbar" hidden={open !== null}>
-          <label className="field field--search history__search">
-            <Search size={14} strokeWidth={1.75} aria-hidden />
-            <input
-              type="search"
-              placeholder="Buscar por mensaje, autor o SHA"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onSearchKeyDown}
-              aria-label="Buscar commits"
-            />
-          </label>
-          {matches && (
-            <>
-              <span className="history__matches text-2 small" aria-live="polite">
-                {matchList.length === 0 ? 'Sin resultados' : `${matchPosition || '–'} de ${matchList.length}`}
-              </span>
-              <button className="btn btn--icon btn--ghost" aria-label="Coincidencia anterior" title="Anterior (Shift+Enter)" onClick={() => goToMatch(-1)}>
-                <ArrowUp size={15} strokeWidth={1.75} />
-              </button>
-              <button className="btn btn--icon btn--ghost" aria-label="Coincidencia siguiente" title="Siguiente (Enter)" onClick={() => goToMatch(1)}>
-                <ArrowDown size={15} strokeWidth={1.75} />
-              </button>
-            </>
-          )}
-          <span className="history__count text-2 small">
-            {loading ? 'Cargando…' : `${commits.length.toLocaleString('es-AR')} commits`}
-            {page?.hasMore && !loading && (
-              <>
-                {' · '}
-                <button className="link" onClick={loadMore}>
-                  cargar más
-                </button>
-              </>
-            )}
-          </span>
-        </div>
+      <aside
+        className="panel glass history__side"
+        style={grid.panels.refs?.panel}
+        hidden={!grid.panels.refs}
+        data-side={grid.panels.refs?.side}
+        aria-label="Ramas, tags y stashes"
+      >
+        {panelBar('refs', 'Ramas')}
+        <RefsPanel
+          refs={refs}
+          stashes={stashes}
+          filter={filter}
+          selectedRef={lineageRef}
+          selectedStash={selectedStash?.sha ?? null}
+          onSelectRef={(ref) => selectBranch(ref.ref)}
+          onSelectStash={(stash) => showStash(stash.sha)}
+          onRefMenu={(ref, at) => menu.open(at, menus.ref(ref))}
+          onStashMenu={(stash, at) => menu.open(at, menus.stash(stash))}
+          onRefDoubleClick={(ref) => props.onCheckout(ref.ref)}
+          onRefDrop={(source, target, at) => openDropMenu(source, target.ref, at)}
+          onToggleHidden={toggleHidden}
+        />
+      </aside>
+      {splitterFor('refs')}
 
+      <section ref={centerRef} className="panel glass history__center" style={grid.center}>
         {lineageRef && open === null && (
           <BranchInsightCard
-            name={refs.refs.find((r) => r.ref === lineageRef)?.name ?? lineageRef}
+            name={refByName.get(lineageRef)?.name ?? lineageRef}
             insight={insight?.ref === lineageRef ? insight : null}
             onGoTo={(sha) => selectCommit(sha, 'center')}
-            onCompare={onCompare}
+            onCompare={props.onCompare}
             onClose={() => setLineageRef(null)}
           />
         )}
@@ -377,9 +771,18 @@ export function HistoryView(props: Props) {
           {page === null ? (
             <EmptyState title="Cargando historial…" />
           ) : rows.length === 0 ? (
-            <EmptyState title="Este repositorio todavía no tiene commits">
-              Hacé el primer commit desde la terminal o el editor y va a aparecer acá.
-            </EmptyState>
+            filtered ? (
+              <EmptyState title="No hay ramas a la vista">
+                Todas las ramas están ocultas.{' '}
+                <button className="link" onClick={props.onShowAll}>
+                  Mostrar todas
+                </button>
+              </EmptyState>
+            ) : (
+              <EmptyState title="Este repositorio todavía no tiene commits">
+                Hacé el primer commit desde la terminal o el editor y va a aparecer acá.
+              </EmptyState>
+            )
           ) : (
             <CommitList
               commits={rows}
@@ -392,9 +795,18 @@ export function HistoryView(props: Props) {
               selectedRef={lineageRef}
               scrollRequest={scrollRequest}
               wip={wip}
+              columns={columns}
+              graphAvatars={appearance.graphAvatars}
+              onColumnsChange={setColumns}
               onSelect={(sha, viaKeyboard) => selectCommit(sha, viaKeyboard ? 'nearest' : null)}
               onSelectRef={selectBranch}
               onNearEnd={loadMore}
+              onRowMenu={openRowMenu}
+              onRefMenu={openRefMenu}
+              onHeaderMenu={openHeaderMenu}
+              onRefDoubleClick={props.onCheckout}
+              onRefDrop={openDropMenu}
+              onDragPanel={startDrag('center')}
             />
           )}
         </div>
@@ -407,7 +819,7 @@ export function HistoryView(props: Props) {
                 Volver al historial
               </button>
               <span className="text-2 small">
-                Commit <code>{shortSha(open.sha)}</code> · Esc para volver
+                {stashBySha.has(open.sha) ? 'Stash' : 'Commit'} <code>{shortSha(open.sha)}</code> · Esc para volver
               </span>
             </div>
             <DiffView
@@ -415,7 +827,7 @@ export function HistoryView(props: Props) {
               left={{ kind: 'ref', ref: open.parent }}
               right={{ kind: 'ref', ref: open.sha }}
               labelA={open.parent ? `padre ${shortSha(open.parent)}` : 'sin padre'}
-              labelB={`commit ${shortSha(open.sha)}`}
+              labelB={`${stashBySha.has(open.sha) ? 'stash' : 'commit'} ${shortSha(open.sha)}`}
               change={open.change}
               options={options}
               onOptionsChange={onOptionsChange}
@@ -433,39 +845,102 @@ export function HistoryView(props: Props) {
               options={options}
               onOptionsChange={onOptionsChange}
               onBack={() => setOpen(null)}
-              onChanged={refreshStatus}
+              onChanged={props.onRefreshStatus}
               onError={onError}
             />
           </div>
         )}
       </section>
 
-      <aside className="panel glass history__details" aria-label="Detalle">
-        {selectedSha === WIP_SHA && status ? (
-          <WorkingTreePanel
-            root={repo.root}
-            status={status}
-            openFile={workingOpen ? { path: workingOpen.file.path, area: workingOpen.area } : null}
-            draft={draft}
-            onDraftChange={setDraft}
-            onOpenFile={(file, area) => setOpen({ kind: 'working', file, area })}
-            onChanged={refreshStatus}
-            onCommitted={onCommitted}
-            onError={onError}
-          />
-        ) : selectedSha && selectedSha !== WIP_SHA ? (
-          <CommitDetails
-            root={repo.root}
-            sha={selectedSha}
-            selectedPath={open?.kind === 'commit' ? open.change.path : null}
-            onOpenFile={openFileFromDetails}
-            onSelectCommit={(sha) => selectCommit(sha, 'center')}
-            onSelectBranch={selectBranchByName}
-          />
-        ) : (
-          <div className="details details--empty text-2">Elegí un commit para ver su detalle.</div>
-        )}
+      {splitterFor('details')}
+      <aside
+        className="panel glass history__details"
+        style={grid.panels.details?.panel}
+        hidden={!grid.panels.details}
+        data-side={grid.panels.details?.side}
+        aria-label="Detalle"
+      >
+        {panelBar('details', selectedSha === WIP_SHA ? 'Cambios' : 'Detalle')}
+        <div className="history__details-body">
+          {selectedSha === WIP_SHA && status ? (
+            <WorkingTreePanel
+              root={repo.root}
+              status={status}
+              openFile={workingOpen ? { path: workingOpen.file.path, area: workingOpen.area } : null}
+              draft={draft}
+              onDraftChange={setDraft}
+              onOpenFile={(file, area) => setOpen({ kind: 'working', file, area })}
+              onChanged={props.onRefreshStatus}
+              onCommitted={onCommitted}
+              onError={onError}
+            />
+          ) : selectedSha && selectedSha !== WIP_SHA ? (
+            <>
+              {selectedStash && (
+                <div className="details__stash">
+                  <code>{`stash@{${selectedStash.index}}`}</code> {stashLabel(selectedStash.message)}
+                </div>
+              )}
+              <CommitDetails
+                root={repo.root}
+                sha={selectedSha}
+                refsVersion={reloadKey}
+                selectedPath={open?.kind === 'commit' ? open.change.path : null}
+                onOpenFile={openFileFromDetails}
+                onSelectCommit={(sha) => selectCommit(sha, 'center')}
+                onSelectBranch={selectBranchByName}
+              />
+            </>
+          ) : (
+            <div className="details details--empty text-2">Elegí un commit para ver su detalle.</div>
+          )}
+        </div>
       </aside>
+
+      {drag?.moving && <DockPreview gridRef={gridRef} centerRef={centerRef} drag={drag} layout={layout} />}
+    </div>
+  )
+}
+
+/** Mientras se arrastra un panel: dónde va a quedar si se suelta ahí. */
+function DockPreview({
+  gridRef,
+  centerRef,
+  drag,
+  layout
+}: {
+  gridRef: React.RefObject<HTMLDivElement | null>
+  centerRef: React.RefObject<HTMLElement | null>
+  drag: DockDrag
+  layout: DockLayout
+}) {
+  const grid = gridRef.current?.getBoundingClientRect()
+  const center = centerRef.current?.getBoundingClientRect()
+  if (!grid || !center) return null
+  const target = drag.target
+  const name = drag.panel === 'center' ? 'el gráfico' : `el panel de ${PANEL_NAMES[drag.panel].toLowerCase()}`
+  let box: { left: number; top: number; width: number; height: number } | null = null
+  if (target) {
+    const area = target.placement === 'inner' ? center : grid
+    const size =
+      drag.panel === 'center'
+        ? (target.side === 'left' || target.side === 'right' ? area.width : area.height) * 0.6
+        : Math.min(
+            (target.side === 'left' || target.side === 'right' ? area.width : area.height) * 0.45,
+            layout.docks.find((d) => d.panel === drag.panel)?.size ?? 260
+          )
+    box = {
+      left: (target.side === 'right' ? area.right - size : area.left) - grid.left,
+      top: (target.side === 'bottom' ? area.bottom - size : area.top) - grid.top,
+      width: target.side === 'left' || target.side === 'right' ? size : area.width,
+      height: target.side === 'top' || target.side === 'bottom' ? size : area.height
+    }
+  }
+  const where = target ? (target.placement === 'inner' ? `${SIDE_NAMES[target.side]} del gráfico` : `${SIDE_NAMES[target.side]} de todo`) : null
+  return (
+    <div className="dock-overlay" aria-live="polite">
+      {box && <div className="dock-overlay__preview" style={box} />}
+      <div className="dock-overlay__label">{where ? `Soltá para poner ${name} ${where}` : `Arrastrá ${name} hacia un borde · Esc cancela`}</div>
     </div>
   )
 }

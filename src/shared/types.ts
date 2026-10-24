@@ -37,6 +37,13 @@ export interface RefInfo {
   kind: RefKind
   /** SHA del commit al que apunta (en tags anotados, el commit y no el objeto tag). */
   target: string
+  /** Solo ramas locales: la remota que sigue (ej. "refs/remotes/origin/main"). */
+  upstream?: string
+  /** Commits que tiene y que no están en su remota, y al revés. */
+  ahead?: number
+  behind?: number
+  /** La remota que seguía ya no existe (se borró en el servidor). */
+  upstreamGone?: boolean
 }
 
 export interface RefList {
@@ -132,6 +139,50 @@ export interface WorkingTreeStatus {
   unstaged: WorkingFile[]
   /** Archivos con conflictos de merge sin resolver. */
   conflicted: WorkingFile[]
+  /** Remota que sigue la rama actual (ej. "origin/main"), y cuánto se adelanta y se atrasa. */
+  upstream: string | null
+  ahead: number
+  behind: number
+  /** Operación a medio hacer, por ejemplo frenada por conflictos. */
+  operation: RepoOperation | null
+}
+
+/** Operación de Git que quedó a medio hacer y hay que continuar o abortar. */
+export type RepoOperation = 'merge' | 'rebase' | 'cherry-pick' | 'revert'
+
+/** Cómo terminó una operación que puede frenarse por conflictos. */
+export type Outcome = 'done' | 'conflicts'
+
+export interface StashInfo {
+  /** Posición en la lista: es el n de stash@{n}. */
+  index: number
+  sha: string
+  /** Commit sobre el que se guardó (el HEAD de ese momento). */
+  base: string
+  message: string
+  /** Fecha en segundos desde 1970. */
+  date: number
+}
+
+/** Por dónde va un fetch, pull o push (lo que Git escribe con --progress). */
+export interface GitProgress {
+  phase: string
+  percent: number
+}
+
+/** Dónde abrir la carpeta del repo. */
+export type OpenTarget = 'folder' | 'terminal' | 'editor'
+
+export type MergeMode = 'default' | 'no-ff' | 'ff-only'
+/** keep: como hard, pero se niega si pisaría cambios sin commitear (se usa para deshacer). */
+export type ResetMode = 'soft' | 'mixed' | 'hard' | 'keep'
+export type PullMode = 'ff-or-merge' | 'ff-only' | 'rebase'
+
+/** Qué mostrar en el gráfico: todas las ramas menos las ocultas, o solo algunas. */
+export interface GraphFilter {
+  hidden: string[]
+  /** Si tiene ramas, se muestran solo esas (y HEAD). */
+  solo: string[]
 }
 
 export type WorkingArea = 'staged' | 'unstaged'
@@ -167,12 +218,19 @@ export interface GitOnoApi {
   /** Carpeta pasada por línea de comandos al abrir la app, si hubo una. */
   initialRepoPath(): Promise<string | null>
   listRefs(root: string): Promise<RefList>
+  /** Trae las novedades de todos los remotos. El progreso llega por `onProgress`. */
   fetchAll(root: string): Promise<void>
+  /** Commits que agregan o quitan un texto en el código (git log -S). */
+  searchCode(root: string, text: string): Promise<string[]>
+  /** Abre la carpeta del repo en el explorador, una terminal o VS Code. */
+  openIn(root: string, target: OpenTarget): Promise<void>
+  /** Avisa el progreso de fetch, pull y push. Devuelve una función para dejar de escuchar. */
+  onProgress(listener: (root: string, progress: GitProgress) => void): () => void
   compare(root: string, refA: string, refB: string): Promise<CompareResult>
   /** Lee una versión de un archivo: de un commit o rama, del índice o de la carpeta de trabajo. */
   readFile(root: string, source: FileSource, path: string): Promise<FileContent>
-  /** Historial de todas las ramas y tags, del más nuevo al más viejo. */
-  listCommits(root: string, limit: number): Promise<CommitPage>
+  /** Historial de todas las ramas y tags (salvo las ocultas), del más nuevo al más viejo. */
+  listCommits(root: string, limit: number, filter?: GraphFilter): Promise<CommitPage>
   commitDetails(root: string, sha: string): Promise<CommitDetails>
 
   // Cambios locales
@@ -193,6 +251,50 @@ export interface GitOnoApi {
   branchInsight(root: string, ref: string): Promise<BranchInsight>
   branchesContaining(root: string, sha: string): Promise<string[]>
 
+  // Operaciones (ver git/ops.ts). Las ramas y tags se pasan con el nombre completo (refs/...).
+  /** Cambia a una rama local, a una remota (crea la local que la sigue) o a un commit suelto. Devuelve la rama local. */
+  checkout(root: string, target: string): Promise<string | null>
+  createBranch(root: string, name: string, startPoint: string, checkout: boolean): Promise<string>
+  renameBranch(root: string, ref: string, newName: string): Promise<string>
+  /** Borra una rama local y devuelve el commit al que apuntaba (para poder deshacer). */
+  deleteBranch(root: string, ref: string, force: boolean): Promise<string>
+  deleteRemoteBranch(root: string, ref: string): Promise<string>
+  setUpstream(root: string, ref: string, upstream: string | null): Promise<void>
+  /** Avanza una rama hasta otra, solo si es avance rápido (sin cambiar de rama). */
+  fastForward(root: string, ref: string, to: string): Promise<void>
+  merge(root: string, ref: string, mode: MergeMode): Promise<Outcome>
+  rebase(root: string, onto: string): Promise<Outcome>
+  cherryPick(root: string, sha: string): Promise<Outcome>
+  revert(root: string, sha: string): Promise<Outcome>
+  reset(root: string, sha: string, mode: ResetMode): Promise<void>
+  continueOperation(root: string): Promise<Outcome>
+  abortOperation(root: string): Promise<void>
+  createTag(root: string, name: string, sha: string, message: string | null): Promise<string>
+  deleteTag(root: string, ref: string): Promise<string>
+  pushTag(root: string, ref: string, remote: string): Promise<void>
+  deleteRemoteTag(root: string, ref: string, remote: string): Promise<void>
+  listRemotes(root: string): Promise<string[]>
+  pull(root: string, mode: PullMode): Promise<Outcome>
+  /** Sube una rama. Si no sigue ninguna remota, la publica en el primer remoto y la deja siguiéndola. */
+  push(root: string, ref: string, force: boolean): Promise<void>
+
+  // Stash
+  listStashes(root: string): Promise<StashInfo[]>
+  /** Guarda los cambios sin commitear (también los archivos nuevos). Devuelve false si no había cambios. */
+  stash(root: string, message: string): Promise<boolean>
+  applyStash(root: string, index: number, pop: boolean): Promise<Outcome>
+  /** Borra un stash y devuelve su SHA, para poder recuperarlo. */
+  dropStash(root: string, index: number): Promise<string>
+  /** Vuelve a guardar un stash borrado (deshacer). */
+  restoreStash(root: string, sha: string, message: string): Promise<void>
+  renameStash(root: string, index: number, message: string): Promise<void>
+
+  /** Guarda un commit como archivo .patch (pregunta dónde). Devuelve false si se cancela. */
+  savePatch(root: string, sha: string): Promise<boolean>
+  copyText(text: string): Promise<void>
+  /** Abre una dirección https en el navegador. */
+  openExternal(url: string): Promise<void>
+
   /** URL del avatar de cada email (GitHub, si se puede; si no, Gravatar). */
   resolveAvatars(root: string, emails: string[], provider: ProviderInfo | null): Promise<Record<string, string>>
 
@@ -208,6 +310,8 @@ export interface GitOnoApi {
   platform: 'win32' | 'darwin' | 'linux' | string
   /** Aplica el tema elegido a las partes nativas (diálogos, barra de título). */
   setAppearance(appearance: NativeAppearance): Promise<void>
+  /** Zoom de toda la interfaz (1 = 100 %). */
+  setZoom(factor: number): void
 }
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
@@ -224,6 +328,8 @@ export const IPC = {
   initialRepoPath: 'repo:initial-path',
   listRefs: 'git:list-refs',
   fetchAll: 'git:fetch-all',
+  searchCode: 'git:search-code',
+  openIn: 'ui:open-in',
   compare: 'git:compare',
   readFile: 'git:read-file',
   listCommits: 'git:list-commits',
@@ -238,13 +344,44 @@ export const IPC = {
   lastCommitMessage: 'git:last-commit-message',
   branchInsight: 'git:branch-insight',
   branchesContaining: 'git:branches-containing',
+  checkout: 'git:checkout',
+  createBranch: 'git:create-branch',
+  renameBranch: 'git:rename-branch',
+  deleteBranch: 'git:delete-branch',
+  deleteRemoteBranch: 'git:delete-remote-branch',
+  setUpstream: 'git:set-upstream',
+  fastForward: 'git:fast-forward',
+  merge: 'git:merge',
+  rebase: 'git:rebase',
+  cherryPick: 'git:cherry-pick',
+  revert: 'git:revert',
+  reset: 'git:reset',
+  continueOperation: 'git:continue',
+  abortOperation: 'git:abort',
+  createTag: 'git:create-tag',
+  deleteTag: 'git:delete-tag',
+  pushTag: 'git:push-tag',
+  deleteRemoteTag: 'git:delete-remote-tag',
+  listRemotes: 'git:list-remotes',
+  pull: 'git:pull',
+  push: 'git:push',
+  listStashes: 'git:list-stashes',
+  stash: 'git:stash',
+  applyStash: 'git:apply-stash',
+  dropStash: 'git:drop-stash',
+  restoreStash: 'git:restore-stash',
+  renameStash: 'git:rename-stash',
+  savePatch: 'git:save-patch',
+  copyText: 'ui:copy-text',
+  openExternal: 'ui:open-external',
   resolveAvatars: 'avatars:resolve',
   confirm: 'ui:confirm',
   setAppearance: 'ui:set-appearance',
   watchRepo: 'repo:watch',
   unwatchRepo: 'repo:unwatch',
   /** Evento del proceso principal hacia la interfaz (no es un pedido). */
-  repoChanged: 'repo:changed'
+  repoChanged: 'repo:changed',
+  progress: 'git:progress'
 } as const
 
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: string }

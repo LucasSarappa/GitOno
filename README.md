@@ -2,13 +2,85 @@
 
 # GitOno
 
-Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: varios repos en pestañas, historial con gráfico de ramas, preparar y commitear cambios (también por bloque o por línea) y diferencias con el visor de VS Code. Suma dos cosas que GitKraken no resuelve bien:
+Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken: varios repos en pestañas, historial con gráfico de ramas, operaciones con clic derecho (checkout, merge, rebase, cherry-pick, reset, tags, stash, pull y push) con Deshacer, preparar y commitear cambios (también por bloque o por línea) y diferencias con el visor de VS Code. Suma dos cosas que GitKraken no resuelve bien:
 - **Comparar dos ramas lado a lado** sin cambiarte de rama ni clonar el repo dos veces.
 - **El linaje de cada rama:** de dónde sale, en qué commit nace, desde dónde se creó y dónde y con qué commit se mergeó.
 
 Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no necesita cuenta. El nombre viene de **Ono**, el caniche toy del autor: es el logo de la app.
 
-## Qué hace hoy (v0.4)
+## Qué hace hoy (v0.6)
+
+### Como GitKraken, con menos carga visual
+
+- **Paneles pegados** como en GitKraken, separados por una línea fina. El vidrio esmerilado queda como opción en Apariencia.
+- **Columnas por defecto:** Rama / tag, Gráfico y Mensaje. Autor, Fecha y SHA se suman con clic derecho en el encabezado.
+- **Fotos de los autores en los nodos del gráfico.**
+- **Etiquetas de rama con un tinte suave** del color de su carril; la rama actual es la única llena.
+- **Barra de herramientas** con el ícono arriba y el nombre abajo.
+- **Fila WIP con íconos y cantidades:** modificados, nuevos, borrados y en conflicto.
+- **Rama fantasma:** al pasar el mouse por un commit sin etiquetas (o al elegirlo), aparece tenue la rama más cercana que lo contiene. Doble clic hace checkout.
+- **Lista desplegable:** si un commit tiene varias ramas ("+2"), al apoyar el mouse se despliegan todas, cada una con su menú.
+
+### Temas y colores
+
+- **Ocho temas:**
+  - claros: Crema, Papel, Niebla y Solar;
+  - oscuros: Cacao, Abismo (el más parecido a GitKraken), Grafito y Alto contraste.
+
+  Se elige uno para el modo claro y otro para el oscuro, y la app sigue al sistema o queda fija.
+- **Cualquier color se puede cambiar:** fondo, paneles, textos, acento, estados de archivo y los ocho carriles del gráfico. Los cambios se ven en vivo y cada color vuelve al original con un clic. Si un cambio deja texto difícil de leer, avisa con la relación de contraste.
+- **Compartir un tema:** "Copiar el tema" lo copia como texto y "Pegar" lo carga.
+- Los ocho temas cumplen el contraste mínimo de WCAG AA; lo verifica un test.
+
+### Paneles acomodables
+
+- **Arrastrar cada cuadro a cualquier borde:**
+  - el panel de ramas y el de detalle se arrastran desde su barra de título;
+  - el gráfico, desde el encabezado de sus columnas.
+
+  Pueden ir a la izquierda, a la derecha, arriba o abajo, al lado del gráfico o de todo. Mientras se arrastra, un recuadro muestra dónde va a quedar.
+- **Menú Disposición** (al lado de la búsqueda), con seis disposiciones listas: clásica, espejada, detalle abajo, ramas arriba, gráfico a la derecha y solo el gráfico.
+- **Teclado:** el botón ⋯ de cada panel lo mueve u oculta sin arrastrar.
+
+### Más herramientas
+
+- **Paleta de comandos (Ctrl+P):** todo lo que se puede hacer, buscando con unas letras ("chk pagos" → checkout de feature/pagos). Incluye operaciones, checkout y linaje de cada rama, temas y zoom.
+- **Buscar en el código:** el botón `<>` de la búsqueda encuentra los commits que agregan o quitan un texto (`git log -S`), no solo por mensaje.
+- **Progreso de pull, push y fetch** en la barra ("Recibiendo objetos 45 %").
+- **Fetch automático** cada 5, 15 o 30 minutos, desde el menú de Pull. Viene apagado.
+- **Abrir el repo** en el explorador, en una terminal o en VS Code: clic en el nombre del repo.
+- **Zoom** de toda la interfaz (Ctrl+= / Ctrl+− / Ctrl+0, o en Apariencia).
+- **Lista de atajos**, desde la paleta de comandos.
+
+### Operaciones (clic derecho, como en GitKraken)
+
+- **Clic derecho en una rama** (en el gráfico o en el panel izquierdo):
+  - checkout (de una remota crea la rama local que la sigue);
+  - mergear en la rama actual (normal, siempre con commit de merge o solo si es avance rápido) y rebasear la actual encima;
+  - avanzar una rama hasta su remota sin cambiarte de rama;
+  - pull, push o publicarla en el servidor, y elegir qué rama remota sigue;
+  - crear una rama o un tag ahí, comparar con la rama actual y ver de dónde sale;
+  - ocultarla del gráfico o mostrar solo esa;
+  - abrirla en GitHub o GitLab y crear el pull request o merge request;
+  - copiar el nombre o el SHA, renombrarla y borrarla (también en el servidor).
+- **Clic derecho en un commit:** checkout (HEAD desacoplado), crear rama o tag, cherry-pick, revertir, **reset suave, mixto o duro**, rebasear la rama actual encima, guardar como `.patch`, abrir en GitHub/GitLab y copiar SHA, enlace o mensaje.
+- **Clic derecho en la fila WIP:** guardar los cambios en un stash, crear una rama con esos cambios o descartar todo.
+- **Tags:** crear livianos o anotados (y subirlos), subir, borrar local y en el servidor.
+- **Stash:** guardar (con mensaje, incluidos los archivos nuevos), aplicar, sacar (pop), ver sus cambios, cambiar el mensaje y borrar. Están en el panel izquierdo.
+- **Arrastrar una rama sobre otra:** mergear, rebasear, avanzar (fast-forward) o comparar.
+- **Doble clic en una rama:** checkout. Si tenés cambios que el checkout pisaría, ofrece guardarlos en un stash y cambiar igual.
+- **Barra de herramientas:** Deshacer, Rehacer, **Pull** (con fetch y tres modos: avance rápido si se puede, solo avance rápido o rebase; el modo por defecto se elige), **Push** (con la cantidad de commits para subir y bajar), Rama, Stash y Pop.
+- **Deshacer y Rehacer (Ctrl+Z / Ctrl+Y):** checkout, crear, renombrar y borrar ramas, merges, rebases, cherry-picks, reverts, resets, commits, tags, stashes y descartar cambios. Un aviso abajo ofrece deshacer lo último.
+- **Conflictos:** si un merge, rebase, cherry-pick, revert o stash queda con conflictos, un aviso arriba lo dice, muestra los archivos y tiene **Abortar** y **Continuar**. Los conflictos se resuelven en tu editor y se marcan como resueltos preparándolos.
+- **Push rechazado:** si el servidor tiene commits que no tenés, ofrece forzar el push con `--force-with-lease`, que no pisa commits que no viste.
+- Las operaciones peligrosas (reset duro, borrar ramas, tags o stashes) piden confirmación en un diálogo, y los errores se muestran ahí mismo.
+
+### Todo ajustable
+
+- **Paneles:** el de ramas y el de detalle se ensanchan arrastrando su borde (doble clic vuelve al ancho original) y se ocultan con los botones de la barra del historial, o con **Ctrl+K** y **Ctrl+J**.
+- **Columnas del historial:** se ensanchan arrastrando su borde, se reordenan arrastrando el título y con **clic derecho en el encabezado** se elige cuáles ver (Rama / tag, Gráfico, Autor, Fecha, SHA). Si la ventana es angosta, se ocultan solas para que el mensaje no quede apretado.
+- **Ramas ocultas:** el ojo de cada rama del panel la oculta del gráfico; también se puede mostrar solo una o varias.
+- Todo se recuerda al cerrar la app.
 
 ### Interfaz
 
@@ -17,7 +89,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
   - el clic con la rueda cierra una pestaña;
   - las pestañas se recuerdan al cerrar la app;
   - la pestaña nueva muestra los repos recientes.
-- **Tema claro, oscuro o el del sistema**, y **efecto vidrio**: paneles translúcidos con desenfoque. Se apaga si preferís paneles sólidos, y se apaga solo si el sistema pide menos transparencia. Todo está en el botón de **Apariencia** (paleta).
+- **Modo claro, oscuro o el del sistema**, ocho temas y **efecto vidrio** opcional (paneles translúcidos que flotan con desenfoque; se apaga solo si el sistema pide menos transparencia). Todo está en el botón de **Apariencia** (paleta).
 - **Fotos de los autores**, como en GitKraken:
   - en repos de GitHub, con la API pública;
   - para los emails privados de GitHub, directo desde el email;
@@ -25,7 +97,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
   - sin foto, se muestran las iniciales.
 
   Se pueden desactivar en Apariencia, y entonces la app no hace ningún pedido a internet.
-- Diseño propio, "Ono, vidrio cálido": paleta crema, damasco y caramelo (cacao en oscuro). Está documentado en [DESIGN.md](DESIGN.md).
+- Diseño propio: los temas de fábrica, Crema y Cacao, salen del pelaje de Ono. Está documentado en [DESIGN.md](DESIGN.md); el diagnóstico de la v0.6 para bajar la carga visual, en [docs/evaluacion-ux.md](docs/evaluacion-ux.md).
 
 ### Linaje de las ramas
 
@@ -61,7 +133,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
   - ramas locales y remotas (si una rama y su remota apuntan al mismo commit, se muestran juntas);
   - tags;
   - HEAD.
-- **Panel de ramas** a la izquierda: locales, remotas agrupadas por remoto y tags, con filtro. Un clic lleva al commit de esa rama.
+- **Panel de ramas** a la izquierda: locales (con ↑ commits para subir y ↓ para bajar), remotas agrupadas por remoto, tags y stashes, con filtro. Un clic lleva al commit de esa rama.
 - **Detalle del commit** a la derecha:
   - mensaje completo, autor y fecha;
   - SHA (con botón para copiarlo);
@@ -80,12 +152,16 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 ### General
 
-- Botón **Actualizar** (`git fetch --all --prune`) para traer las novedades del servidor.
+- **Fetch** (`git fetch --all --prune`) desde el menú de Pull, para traer las novedades del servidor.
 - Detecta si el repo es de GitHub, GitLab u otro servidor.
 
 **Atajos:**
 - Pestañas: **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** / **Ctrl+Shift+Tab** y **Ctrl+O**.
-- En el historial: **↑ / ↓**, **RePág / AvPág**, **Inicio / Fin** para moverte por los commits, y **Esc** para volver del diff o dejar de resaltar una rama.
+- **Ctrl+Z** / **Ctrl+Y** (o **Ctrl+Shift+Z**): deshacer y rehacer la última operación.
+- **Ctrl+K** / **Ctrl+J**: mostrar u ocultar el panel de ramas y el de detalle.
+- **Ctrl+P**: paleta de comandos. **Ctrl+F**: buscar commits.
+- **Ctrl+=** / **Ctrl+−** / **Ctrl+0**: agrandar, achicar y volver a 100 %.
+- En el historial: **↑ / ↓**, **RePág / AvPág**, **Inicio / Fin** para moverte por los commits, **Esc** para volver del diff o dejar de resaltar una rama, y la tecla **Menú** (o **Shift+F10**) para abrir el menú del commit elegido.
 - En la caja de commit: **Ctrl+Enter** para hacer el commit.
 - En "Comparar ramas": **↑ / ↓** para pasar de un archivo a otro.
 
@@ -122,12 +198,12 @@ npx electron-vite dev -- "C:\ruta\a\tu\repo"
 npm run dist
 ```
 
-Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.4.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
+Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.6.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
 
-- se instala solo para tu usuario, sin permisos de administrador, en `%LOCALAPPDATA%\Programs\GitOno`;
+- "Solo para mí" la instala sin permisos de administrador en `%LOCALAPPDATA%\Programs\GitOno`; "Para todos los usuarios", en `C:\Program Files\GitOno`;
 - crea accesos directos en el escritorio y en el menú Inicio.
 
-La carpeta de instalación es fija a propósito: el desinstalador borra esa carpeta entera, así que nunca tiene que coincidir con una carpeta de trabajo.
+La carpeta de instalación es fija a propósito: el desinstalador borra esa carpeta entera, así que nunca tiene que coincidir con una carpeta de trabajo. Por las dudas, el desinstalador se niega a borrar una carpeta que tenga `.git` o `package.json`.
 
 El instalador no está firmado digitalmente (un certificado de firma de código es pago), así que Windows SmartScreen va a mostrar "Windows protegió tu PC". Tocá **Más información** y después **Ejecutar de todas formas**.
 
@@ -138,18 +214,19 @@ Para actualizar, volvé a correr `npm run dist` e instalá encima. Para desinsta
 ```
 src/
   main/             Proceso principal (Node): acá se ejecuta Git
-    git/            Núcleo Git: ramas, linaje, historial, comparación, cambios locales, vigilancia del disco
+    git/            Núcleo Git: ramas, linaje, historial, comparación, cambios locales, operaciones, vigilancia del disco
     providers/      Adaptadores por plataforma (GitHub, GitLab, ...)
     avatars.ts      Fotos de los autores (GitHub, Gravatar) con caché
+    open.ts         Abrir el repo en el explorador, una terminal o VS Code
     ipc.ts          Canales entre la interfaz y el proceso principal
   preload/          Puente seguro que expone window.gitono a la interfaz
   renderer/         Interfaz (React)
-    src/views/      Espacio de cada repo (RepoWorkspace), Historial y Comparar ramas
+    src/views/      Espacio de cada repo (RepoWorkspace), Historial, Comparar ramas y las operaciones (useRepoActions)
     src/assets/     Logo de Ono
-    src/components/ Gráfico, lista de commits, panel de ramas, detalle, visor de diferencias
-    src/lib/        Lógica de la interfaz (gráfico, etiquetas, árbol, formatos, preferencias)
+    src/components/ Gráfico, lista de commits, panel de ramas, detalle, visor de diferencias, menú contextual, diálogos, paleta de comandos, editor de colores
+    src/lib/        Lógica de la interfaz (gráfico, etiquetas, rama fantasma, columnas, disposición, temas, búsqueda difusa, deshacer, enlaces, árbol, formatos, preferencias)
   shared/           Tipos compartidos y armado de parches (patch.ts)
-build/              Ícono de la app y generador del logo (build/logo/ono.mjs)
+build/              Ícono de la app, generador del logo (build/logo/ono.mjs) y agregados del instalador (installer.nsh)
 PRODUCT.md          Qué es el producto y para quién (contexto para el diseño)
 DESIGN.md           Sistema de diseño: colores, tipografía, componentes y reglas
 docs/

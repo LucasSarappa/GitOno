@@ -164,7 +164,7 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
         <RefSelect label="B" refs={refs} value={refB} onChange={setRefB} />
       </div>
 
-      <div className="compare__body" style={{ gridTemplateColumns: `${sidebarWidth}px 8px minmax(0, 1fr)` }}>
+      <div className="compare__body" style={{ gridTemplateColumns: `${sidebarWidth}px var(--split) minmax(0, 1fr)` }}>
         <aside className="panel glass compare__files">
           {comparison.status === 'done' && <Summary result={comparison.result} />}
           <input

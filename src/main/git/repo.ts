@@ -8,6 +8,8 @@ import type {
   CompareResult,
   FileChange,
   FileContent,
+  GitProgress,
+  GraphFilter,
   RefList,
   RepoInfo
 } from '../../shared/types'
@@ -23,6 +25,7 @@ import {
   parseRefs,
   REFS_FORMAT
 } from './parse'
+import { progressReader } from './progress'
 import { assertSafeRef, git, GitError, gitText } from './run'
 
 /** Archivos más grandes que esto no se muestran en el visor. */
@@ -76,8 +79,28 @@ async function resolveHead(root: string): Promise<string | null> {
   )
 }
 
-export async function fetchAll(root: string): Promise<void> {
-  await git(root, ['fetch', '--all', '--prune'], { timeoutMs: 5 * 60_000 })
+export async function fetchAll(root: string, onProgress?: (progress: GitProgress) => void): Promise<void> {
+  await git(root, ['fetch', '--all', '--prune', ...(onProgress ? ['--progress'] : [])], {
+    timeoutMs: 5 * 60_000,
+    onStderr: onProgress && progressReader(onProgress)
+  })
+}
+
+/** Cuántos commits devuelve como máximo la búsqueda en el código. */
+export const MAX_CODE_MATCHES = 2000
+
+/**
+ * Commits que agregan o quitan un texto en el código (git log -S). Busca en ramas,
+ * remotas y tags, como el historial.
+ */
+export async function searchCode(root: string, text: string): Promise<string[]> {
+  if (text.trim().length < 2) return []
+  const output = await gitText(
+    root,
+    ['log', '--branches', '--remotes', '--tags', '--format=%H', `--max-count=${MAX_CODE_MATCHES}`, `-S${text}`, '--'],
+    { timeoutMs: 2 * 60_000 }
+  )
+  return output.split('\n').map((l) => l.trim()).filter(Boolean)
 }
 
 /** Compara el contenido de A contra B, como si fueran dos carpetas. */
@@ -110,29 +133,49 @@ async function changedFiles(root: string, command: string[], revs: string[]): Pr
 /** Límite de commits que se pueden pedir de una vez al cargar el historial. */
 export const MAX_COMMITS = 50_000
 
-/** Historial de todas las ramas, remotas y tags, ordenado por fecha (los hijos siempre antes que los padres). */
-export async function listCommits(root: string, limit: number): Promise<CommitPage> {
+/**
+ * Historial de todas las ramas, remotas y tags, ordenado por fecha (los hijos siempre antes que los
+ * padres). Con un filtro, se dejan afuera las ramas ocultas o se muestran solo las elegidas.
+ */
+export async function listCommits(root: string, limit: number, filter?: GraphFilter): Promise<CommitPage> {
   const count = Math.max(1, Math.min(Math.floor(limit), MAX_COMMITS))
   const head = await resolveHead(root)
-  // Se listan ramas, remotas y tags en vez de usar --all, para que los stashes no aparezcan como commits sueltos.
-  const revs = ['--branches', '--remotes', '--tags', ...(head ? ['HEAD'] : [])]
+  let revs: string[]
+  let input: string | undefined
+  if (filter && (filter.hidden.length > 0 || filter.solo.length > 0)) {
+    // Las referencias a mostrar van por la entrada estándar: así no hay que escapar nombres raros.
+    const refs = await visibleRefs(root, filter)
+    if (refs.length === 0) return { commits: [], hasMore: false }
+    revs = ['--stdin']
+    input = refs.join('\n') + '\n'
+  } else {
+    // Se listan ramas, remotas y tags en vez de usar --all, para que los stashes no aparezcan como commits sueltos.
+    revs = ['--branches', '--remotes', '--tags', ...(head ? ['HEAD'] : [])]
+  }
   let output: string
   try {
-    output = await gitText(root, [
-      'log',
-      ...revs,
-      '--date-order',
-      '--no-show-signature',
-      `--max-count=${count + 1}`,
-      `--format=${LOG_FORMAT}`,
-      '--'
-    ])
+    output = await gitText(
+      root,
+      ['log', ...revs, '--date-order', '--no-show-signature', `--max-count=${count + 1}`, `--format=${LOG_FORMAT}`, '--'],
+      { input }
+    )
   } catch (error) {
     if (!head) return { commits: [], hasMore: false } // repo recién creado, sin commits
     throw error
   }
   const commits = parseLog(output)
   return { commits: commits.slice(0, count), hasMore: commits.length > count }
+}
+
+/** Referencias que quedan a la vista con un filtro. HEAD se suma si no es una rama oculta. */
+async function visibleRefs(root: string, filter: GraphFilter): Promise<string[]> {
+  const { refs, current, head } = await listRefs(root)
+  const all = refs.map((r) => r.ref)
+  const solo = new Set(filter.solo)
+  const hidden = new Set(filter.hidden)
+  const shown = solo.size > 0 ? all.filter((r) => solo.has(r)) : all.filter((r) => !hidden.has(r))
+  const headVisible = head && (current ? shown.includes(current) || (solo.size === 0 && !hidden.has(current)) : solo.size === 0)
+  return headVisible ? [...shown, 'HEAD'] : shown
 }
 
 export async function commitDetails(root: string, sha: string): Promise<CommitDetails> {

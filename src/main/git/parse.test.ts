@@ -47,6 +47,20 @@ describe('parseRefs', () => {
   it('en los tags anotados usa el commit al que apunta el tag', () => {
     expect(parseRefs('refs/tags/v2\tv2\tobjeto-tag\tcommit-real\n')[0].target).toBe('commit-real')
   })
+
+  it('lee la remota que sigue cada rama local', () => {
+    const output = [
+      'refs/heads/main\tmain\taaa\t\trefs/remotes/origin/main\tahead 2, behind 1',
+      'refs/heads/al-dia\tal-dia\tbbb\t\trefs/remotes/origin/al-dia\t',
+      'refs/heads/vieja\tvieja\tccc\t\trefs/remotes/origin/vieja\tgone',
+      ''
+    ].join('\n')
+    expect(parseRefs(output)).toEqual([
+      { ref: 'refs/heads/main', name: 'main', kind: 'local', target: 'aaa', upstream: 'refs/remotes/origin/main', ahead: 2, behind: 1 },
+      { ref: 'refs/heads/al-dia', name: 'al-dia', kind: 'local', target: 'bbb', upstream: 'refs/remotes/origin/al-dia', ahead: 0, behind: 0 },
+      { ref: 'refs/heads/vieja', name: 'vieja', kind: 'local', target: 'ccc', upstream: 'refs/remotes/origin/vieja', upstreamGone: true }
+    ])
+  })
 })
 
 describe('parseLog', () => {
@@ -111,11 +125,20 @@ describe('parseStatus', () => {
         { path: 'con espacios.txt', status: 'modified' },
         { path: 'nuevo.txt', status: 'added', untracked: true }
       ],
-      conflicted: [{ path: 'en conflicto.txt', status: 'modified' }]
+      conflicted: [{ path: 'en conflicto.txt', status: 'modified' }],
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      operation: null
     })
   })
 
   it('reconoce un repo sin commits', () => {
     expect(parseStatus('# branch.oid (initial)\0# branch.head main\0')).toMatchObject({ head: null, branch: 'main' })
+  })
+
+  it('lee la remota que sigue la rama y cuánto se adelanta y atrasa', () => {
+    const output = ['# branch.oid abc', '# branch.head main', '# branch.upstream origin/main', '# branch.ab +2 -1', ''].join('\0')
+    expect(parseStatus(output)).toMatchObject({ upstream: 'origin/main', ahead: 2, behind: 1 })
   })
 })

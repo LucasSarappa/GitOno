@@ -1,6 +1,6 @@
 ---
 name: GitOno
-description: Cliente Git de escritorio inspirado en GitKraken, con la paleta del pelaje de Ono y paneles de vidrio cálido.
+description: Cliente Git de escritorio con la organización de GitKraken, ocho temas (Crema y Cacao, del pelaje de Ono, por defecto), colores personalizables y paneles pegados o de vidrio.
 colors:
   caramel: "#a35f2a"
   caramel-ink: "#8a4c1e"
@@ -10,13 +10,13 @@ colors:
   cream-solid: "#fbf7f2"
   cocoa-ink: "#2a1f18"
   cocoa-muted: "#66544a"
-  cocoa-faint: "#7c6a5d"
+  cocoa-faint: "#76655a"
   cocoa-ground: "#16110e"
   cocoa-solid: "#211a16"
   bone-ink: "#f3e9df"
-  added: "#2f8a57"
-  deleted: "#c2453a"
-  modified: "#a7720f"
+  added: "#2a7d4f"
+  deleted: "#b93d33"
+  modified: "#8f620c"
   renamed: "#2f6fbf"
   lane-caramel: "#d9822b"
   lane-sky: "#3d84c6"
@@ -94,24 +94,35 @@ components:
 
 ## Overview
 
-**Creative North Star: "Ono, vidrio cálido"**
+**Creative North Star: "Ono, vidrio cálido"** (tema por defecto) **dentro de la organización de GitKraken**
 
-GitOno conserva la organización de GitKraken: pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro y detalle a la derecha. Quien viene de ahí encuentra todo donde lo espera. El mundo visual cambia: la paleta sale del pelaje de Ono, el caniche toy que le da nombre. Hay neutros crema y damasco, acento caramelo y, en oscuro, tonos cacao y espresso en vez del azul marino con neón de la categoría.
+GitOno conserva la organización de GitKraken: pestañas de repos en la barra de título, una barra de herramientas con el ícono arriba y el nombre abajo, ramas a la izquierda, gráfico al centro y detalle a la derecha. Quien viene de ahí encuentra todo donde lo espera, y la curva de aprendizaje es corta. Desde la v0.6 los tres cuadros se pueden acomodar a cualquier lado (ver Layout).
 
-Los paneles son de vidrio esmerilado (desenfoque de 28 px y saturación 160 %) y flotan con 8 px de aire sobre un fondo cálido con dos brillos suaves. El vidrio cumple una función: el encabezado de la lista de commits y el de cada sección de cambios locales quedan fijos, y el contenido pasa por debajo, desenfocado. Es una herramienta de trabajo diario: densa, legible y con la marca en los detalles.
+**Temas.** El usuario elige entre ocho temas, cuatro claros (Crema, Papel, Niebla, Solar) y cuatro oscuros (Cacao, Abismo, Grafito, Alto contraste), y puede cambiar cualquiera de sus colores. Los de fábrica son **Crema** y **Cacao**: la paleta sale del pelaje de Ono, el caniche toy que le da nombre (neutros crema y damasco, acento caramelo; en oscuro, cacao y espresso). Abismo es el más parecido a GitKraken (azul profundo con turquesa), para quien viene de ahí.
+
+**Paneles pegados por defecto.** Como GitKraken: paneles de borde a borde separados por líneas de 1 px, con una segunda capa neutra para la barra y los costados. El vidrio esmerilado (desenfoque de 28 px, paneles que flotan con 8 px de aire sobre un fondo con dos brillos suaves) queda como opción en Apariencia. La v0.6 lo apagó por defecto para bajar la carga visual (ver `docs/evaluacion-ux.md`).
 
 El detalle distintivo es el **linaje de la rama**. Al elegir una rama, el gráfico resalta sus commits propios y el resto se atenúa al 32 %. Marca con una pastilla dónde nace ("nace acá", en caramelo) y dónde se mergeó ("mergeada en main", en verde). Una tarjeta de vidrio arriba del gráfico resume el linaje.
 
 **Key Characteristics:**
 - Estructura de GitKraken, sin inventar controles: botones, pestañas, selectores y listas estándar.
-- Paleta cálida en los dos temas. El acento caramelo marca selección, acción principal y foco.
-- Vidrio funcional: hay contenido que pasa por debajo, nunca es adorno suelto.
+- El acento del tema (caramelo en Crema y Cacao) marca selección, acción principal y foco.
+- Poca carga visual: por defecto, solo las columnas Rama / tag, Gráfico y Mensaje, con la foto del autor como nodo del gráfico.
+- Vidrio funcional y opcional: si está prendido, hay contenido que pasa por debajo; nunca es adorno suelto.
 - Color de carril por rama, que se repite en el gráfico, las etiquetas y los conectores.
 - Letra del sistema para todo y monoespaciada solo para SHA, código y diffs.
 
 ## Colors
 
-Restringida y cálida: neutros tintados del pelaje de Ono, un solo acento y colores que hacen trabajo (estado de archivos y carriles del gráfico).
+Cada tema define 21 colores base: fondo, paneles, menús, tres niveles de texto, el acento (con su versión para texto y el texto que va encima), los cuatro estados de archivo y los ocho carriles (`src/renderer/src/lib/themes.ts`). El resto sale de esos colores con `color-mix` en `styles.css`:
+- bordes y tintes de hover: del texto, con transparencia;
+- selección: del acento;
+- vidrio: de los paneles;
+- segunda capa de los costados: de los paneles y el fondo.
+
+Así cualquier tema, también uno personalizado, queda coherente. Los ocho temas pasan un test de contraste WCAG AA (`themes.test.ts`); el editor de colores avisa si un cambio deja texto difícil de leer.
+
+Lo que sigue describe **Crema** y **Cacao**, los temas de fábrica: una paleta restringida y cálida, con neutros tintados del pelaje de Ono, un solo acento y colores que hacen trabajo (estado de archivos y carriles del gráfico).
 
 ### Primary
 - **Caramelo** (`caramel`): botón principal, interruptores encendidos y la etiqueta de un carril seleccionado. En oscuro se usa **Caramelo claro** (`caramel-glow`), con texto oscuro encima.
@@ -156,12 +167,15 @@ Los números de las tablas usan cifras de ancho fijo (`tabular-nums`).
 ## Layout
 
 La ventana tiene una barra de título de 40 px con el logo y las pestañas. Debajo, cada repo tiene su espacio de trabajo:
-- **Barra de herramientas** de 46 px: repo, rama actual, Historial/Comparar, Actualizar y Apariencia.
-- **Cuerpo en tres paneles:** ramas (220 px), centro flexible y detalle (348 px), con 8 px de separación y 8 px de margen.
+- **Barra de herramientas** de unos 52 px:
+  - el repo (clic: abrir la carpeta, una terminal o VS Code) y la rama actual;
+  - Deshacer, Rehacer, Pull, Push, Rama, Stash y Pop, con el ícono arriba y el nombre abajo, como GitKraken;
+  - la búsqueda de commits, la disposición, Historial/Comparar, la paleta de comandos y Apariencia.
+- **Cuerpo en tres cuadros:** ramas (220 px), gráfico flexible y detalle (348 px). Con los paneles pegados los separa una línea de 1 px; con vidrio, 8 px de aire y 8 px de margen.
 
-A menos de 1240 px de ancho, los paneles laterales pasan a 196 y 316 px.
+**Disposición acomodable** (`lib/dock.ts`). Cada panel lateral tiene una barra de título (30 px, en versalitas) que se arrastra a cualquier borde: izquierda, derecha, arriba o abajo, al lado del gráfico o de todo. El gráfico se arrastra desde el encabezado de sus columnas. Mientras se arrastra, un rectángulo del color de acento muestra dónde va a quedar. Todo se dibuja en una sola grilla CSS, así mover un panel no recrea los demás. Hay seis disposiciones prediseñadas en el menú Disposición, y Ctrl+K y Ctrl+J muestran u ocultan cada panel. Arriba o abajo, el panel de ramas reparte sus secciones en columnas.
 
-La lista de commits tiene columnas de ancho fijo: Rama/tag (156), Gráfico (según los carriles), Autor (144), Fecha (112) y SHA (72). El mensaje se queda con el resto. Si al mensaje le quedan menos de 240 px, se ocultan SHA, Fecha y Autor, en ese orden.
+La lista de commits muestra por defecto Rama/tag (156), Gráfico (según los carriles; 24 px por carril con fotos) y Mensaje. Autor (144), Fecha (112) y SHA (72) se suman con clic derecho en el encabezado. Si al mensaje le quedan menos de 240 px, se ocultan SHA, Fecha y Autor, en ese orden.
 
 Ritmo de espacios: 4, 8, 12 y 16 px. Filas de 32 px en el historial y de 27–28 px en listas.
 
@@ -174,14 +188,14 @@ Vidrio en capas: el fondo cálido, los paneles translúcidos encima y las ventan
 - **Emergente** (`0 22px 48px -18px rgba(60,35,18,.42), 0 4px 12px -4px rgba(60,35,18,.14)` en claro): menú de apariencia.
 
 ### Named Rules
-**La regla del vidrio con contenido.** El desenfoque solo se usa donde algo pasa por debajo (encabezados fijos, menús, paneles sobre el fondo). Con el vidrio apagado, o si el sistema pide menos transparencia, todo pasa a ser sólido y nada se rompe.
+**La regla del vidrio con contenido.** El desenfoque solo se usa donde algo pasa por debajo (encabezados fijos, menús, paneles sobre el fondo). Con el vidrio apagado (lo normal desde la v0.6), o si el sistema pide menos transparencia, todo pasa a ser sólido y los paneles se pegan; nada se rompe.
 
 ## Shapes
 
 - **Radios:** curvas suaves y consistentes: 12px para paneles, 10px para tarjetas y bloques, 8px para botones, campos y pestañas, y 6px para etiquetas de rama. Las pastillas (chips, insignias, marcas de linaje) son totalmente redondeadas.
 - **Bordes:** de 1px con baja opacidad, sin franjas de color a los costados.
 - **Nodos del gráfico:**
-  - commit: círculo lleno;
+  - commit: la foto (o las iniciales) del autor, de 20 px, dentro de un aro del color del carril, como GitKraken. Se puede apagar en Apariencia: queda un círculo lleno;
   - merge: círculo hueco con borde;
   - fila WIP: círculo punteado;
   - HEAD y commits del linaje: halo.
@@ -207,11 +221,12 @@ Vidrio en capas: el fondo cálido, los paneles translúcidos encima y las ventan
 - **Selector de vistas:** control segmentado sobre fondo hundido; la opción activa se eleva.
 
 ### Etiquetas de ramas y tags
-- **Rama local:** llena con el color de su carril.
-- **Rama remota:** contorno del carril con un fondo apenas teñido.
-- **Tag:** contorno punteado.
-- **Rama actual:** lleva ✓ y un contorno separado.
-- **Local y remota en el mismo commit:** una sola etiqueta con los íconos de computadora y nube.
+- **Rama local:** borde del color del carril y un tinte suave del mismo color (16 %), con texto normal. Los íconos van a la derecha: computadora (local) y nube (en el servidor).
+- **Rama remota:** igual, con un tinte más suave (9 %).
+- **Tag:** borde neutro con el ícono de tag.
+- **Rama actual:** la única llena con el color del carril, con ✓.
+- **Varias en el mismo commit:** se ve una y un "+N". Al apoyar el mouse se despliegan todas hacia abajo, cada una con su menú y arrastrable.
+- **Rama fantasma:** al pasar el mouse por un commit sin etiquetas (o al elegirlo), su rama más cercana aparece tenue y punteada, como en GitKraken.
 - Una línea punteada del color del carril une cada etiqueta con su nodo.
 
 ### Linaje de la rama (componente distintivo)
@@ -224,12 +239,14 @@ Vidrio en capas: el fondo cálido, los paneles translúcidos encima y las ventan
 - **Do** usar el color del carril para todo lo que pertenece a una rama: nodo, líneas, conector y etiqueta.
 - **Do** dar el caramelo solo a selección, acción principal, foco y estado activo.
 - **Do** usar íconos Lucide de trazo 1,75 (2–2,75 en tamaños de 11–12px) en todos los controles.
-- **Do** probar cada pantalla en claro, en oscuro y con el vidrio apagado.
+- **Do** probar cada pantalla en claro, en oscuro, con el vidrio apagado y prendido, y con al menos un tema que no sea el de fábrica.
+- **Do** derivar los colores nuevos de los colores base del tema (`color-mix`), nunca fijarlos: tienen que seguir a los temas y a los colores del usuario.
 - **Do** ocultar columnas antes que cortar el mensaje del commit.
 
 ### Don't:
 - **Don't** usar caracteres Unicode o emojis como íconos (›, ↺, ⇄): se reemplazaron por íconos reales.
 - **Don't** poner franjas de color de más de 1px a los costados de filas o bloques. La selección se marca con el fondo.
 - **Don't** agregar desenfoque donde no pasa contenido por debajo.
-- **Don't** mostrar controles de funciones que todavía no existen (pull, push, merge… hasta la etapa 3).
-- **Don't** volver al azul marino con neón de GitKraken: el oscuro de GitOno es cacao.
+- **Don't** mostrar controles de funciones que todavía no existen.
+- **Don't** escribir colores fijos en `styles.css` fuera del bloque de tokens: un color fijo no sigue al tema.
+- **Don't** sumar columnas, barras o bordes por defecto: lo que no está en GitKraken, se activa a pedido.

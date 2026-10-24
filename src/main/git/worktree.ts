@@ -1,8 +1,8 @@
 // Cambios locales: estado de la carpeta de trabajo, preparar, quitar, descartar, parches y commit.
 
-import { readFile, stat } from 'node:fs/promises'
+import { access, readFile, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
-import type { FileContent, FileSource, PatchAction, WorkingArea, WorkingTreeStatus } from '../../shared/types'
+import type { FileContent, FileSource, PatchAction, RepoOperation, WorkingArea, WorkingTreeStatus } from '../../shared/types'
 import { looksBinary, parseStatus } from './parse'
 import { MAX_FILE_BYTES, readBlob, readFileAtRef } from './repo'
 import { git, GitError, gitText } from './run'
@@ -10,16 +10,37 @@ import { git, GitError, gitText } from './run'
 export async function workingStatus(root: string): Promise<WorkingTreeStatus> {
   // --no-optional-locks: status no reescribe el índice. Si lo hiciera, la app vería ese cambio
   // en el disco, volvería a pedir el estado y entraría en un ciclo.
-  const output = await gitText(root, [
-    '--no-optional-locks',
-    'status',
-    '--porcelain=v2',
-    '--branch',
-    '-z',
-    '--untracked-files=all'
+  const [output, operation] = await Promise.all([
+    gitText(root, ['--no-optional-locks', 'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']),
+    currentOperation(root)
   ])
-  return parseStatus(output)
+  return { ...parseStatus(output), operation }
 }
+
+/** Archivos que deja Git en .git mientras una operación está a medio hacer. */
+const OPERATION_MARKERS: [string, RepoOperation][] = [
+  ['rebase-merge', 'rebase'],
+  ['rebase-apply', 'rebase'],
+  ['MERGE_HEAD', 'merge'],
+  ['CHERRY_PICK_HEAD', 'cherry-pick'],
+  ['REVERT_HEAD', 'revert']
+]
+
+/** Merge, rebase, cherry-pick o revert que quedó frenado (por conflictos o esperando continuar). */
+export async function currentOperation(root: string): Promise<RepoOperation | null> {
+  // --git-path resuelve bien también en worktrees, donde .git es un archivo y no una carpeta.
+  const args = OPERATION_MARKERS.flatMap(([marker]) => ['--git-path', marker])
+  const paths = (await gitText(root, ['rev-parse', ...args])).split('\n').map((p) => p.trim())
+  for (const [i, [, operation]] of OPERATION_MARKERS.entries()) {
+    if (paths[i] && (await exists(resolve(root, paths[i])))) return operation
+  }
+  return null
+}
+
+const exists = (path: string) => access(path).then(
+  () => true,
+  () => false
+)
 
 export async function readSource(root: string, source: FileSource, path: string): Promise<FileContent> {
   if (source.kind === 'ref') return readFileAtRef(root, source.ref, path)

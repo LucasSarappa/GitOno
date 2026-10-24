@@ -15,6 +15,8 @@ interface RunOptions {
   timeoutMs?: number
   /** Texto que se le pasa a Git por la entrada estándar (un parche, un mensaje de commit). */
   input?: string
+  /** Recibe stderr a medida que llega (para leer el progreso de fetch, pull y push). */
+  onStderr?: (chunk: Buffer) => void
 }
 
 /** Ejecuta `git` en `cwd` y devuelve la salida cruda (sirve también para archivos binarios). */
@@ -29,8 +31,16 @@ export function git(cwd: string, args: string[], options: RunOptions = {}): Prom
         maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,
         timeout: options.timeoutMs ?? 60_000,
         windowsHide: true,
-        // Sin terminal no hay dónde escribir una contraseña; el Credential Manager sí puede abrir su ventana.
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+        env: {
+          ...process.env,
+          // Sin terminal no hay dónde escribir una contraseña; el Credential Manager sí puede abrir su ventana.
+          GIT_TERMINAL_PROMPT: '0',
+          // Tampoco hay dónde editar un mensaje: si un comando (rebase --continue, por ejemplo) quisiera
+          // abrir el editor, se usa el mensaje que Git propone en vez de quedar esperando.
+          GIT_EDITOR: 'true',
+          GIT_SEQUENCE_EDITOR: 'true',
+          GIT_MERGE_AUTOEDIT: 'no'
+        }
       },
       (error, stdout, stderr) => {
         if (!error) return resolve(stdout)
@@ -42,6 +52,7 @@ export function git(cwd: string, args: string[], options: RunOptions = {}): Prom
         reject(new GitError(text || error.message, text))
       }
     )
+    if (options.onStderr) child.stderr?.on('data', options.onStderr)
     // Siempre se cierra la entrada: si un comando intentara leerla, no queda esperando para siempre.
     child.stdin?.end(options.input ?? '')
   })

@@ -6,11 +6,22 @@ Audiencia y tarea: devs que reemplazan a GitKraken. Sesiones largas, varios repo
 
 Restricciones: Windows, macOS y Linux (vidrio solo con CSS, nada de materiales nativos de un sistema); claro y oscuro elegibles; español; repos grandes (20.000+ commits); seguridad de Electron sin cambios (sandbox, CSP).
 
-Decisiones abiertas: ninguna sobre la dirección. Las operaciones de la etapa 3 (pull, push, merge…) no tienen todavía botones: no se muestran controles que no funcionan.
+Decisiones abiertas: ninguna sobre la dirección.
+
+Cambios de la v0.6, a pedido del autor:
+- **Temas:** ocho temas y colores personalizables. Crema y Cacao siguen siendo los de fábrica; Abismo (azul y turquesa) existe para quien viene de GitKraken.
+- **Menos carga visual, más GitKraken:**
+  - paneles pegados por defecto, y el vidrio como opción;
+  - solo las columnas Rama / tag, Gráfico y Mensaje, con fotos en los nodos;
+  - etiquetas con tinte;
+  - barra de herramientas con el ícono arriba y el nombre abajo.
+
+  El diagnóstico está en `docs/evaluacion-ux.md`.
+- **Disposición:** los tres cuadros se acomodan arrastrándolos.
 
 ## Direction contract
 
-THESIS: GitOno es GitKraken con su organización intacta (pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro, detalle a la derecha) y la historia de cada rama como protagonista. Rechaza el azul marino con neón de la categoría y las barras grises de herramienta genérica.
+THESIS: GitOno es GitKraken con su organización intacta (pestañas de repos en la barra de título, ramas a la izquierda, gráfico al centro, detalle a la derecha, todo reacomodable) y la historia de cada rama como protagonista. Por defecto, la identidad es la de Ono (Crema y Cacao). El azul de la categoría queda como un tema elegible (Abismo), no como identidad.
 
 OWN-WORLD: el pelaje de Ono como paleta. Neutros crema y damasco cálidos, acento caramelo para la selección y la acción principal, cacao/espresso en oscuro. Paneles de vidrio esmerilado (desenfoque, borde de 1 px con brillo superior) flotando con aire sobre un fondo cálido y suave. Letra del sistema, monoespaciada para SHA y código, íconos de trazo fino, radios de 10 px. Colores de carril propios, saturados pero amables en los dos temas.
 

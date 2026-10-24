@@ -118,10 +118,51 @@ Decisiones:
 Un `fs.watch` recursivo sobre la carpeta del repo avisa a la interfaz por el canal `repo:changed`:
 
 - **`worktree`:** cambió un archivo del proyecto o `.git/index`. Se relee solo el estado.
-- **`refs`:** cambió `.git/HEAD`, `.git/refs/…` o `packed-refs`. Se releen ramas, historial y estado.
-- **Se ignora:** los `.lock` (son temporales de Git), `objects/` y `logs/`.
+- **`refs`:** cambió `.git/HEAD`, `.git/refs/…`, `packed-refs`, un rebase a medio hacer (`rebase-merge/`, `rebase-apply/`) o el historial de stashes (`logs/refs/stash`: borrar un stash que no es el último no toca `refs/stash`). Se releen ramas, historial, stashes y estado.
+- **Se ignora:** los `.lock` (son temporales de Git), `objects/` y el resto de `logs/`.
 - **Ráfagas:** los cambios se agrupan. El aviso sale 300 ms después del primero de una ráfaga, aunque sigan llegando más; durante algo largo, como un `npm install`, la app se sigue actualizando cada tanto.
 - **Al volver a la ventana** también se relee el estado.
+
+### Operaciones (`src/main/git/ops.ts`)
+
+Todo lo que cambia el repo. Cada referencia que llega de la interfaz se valida con `assertSafeRef` (también el nombre corto), y los nombres nuevos con `git check-ref-format`.
+
+| Función | Comando Git | Notas |
+|---|---|---|
+| `checkout` | `git switch --no-guess`, `switch --create … --track`, `switch --detach` | De una remota: si ya hay una local con ese nombre se usa esa; si no, se crea una que la siga. Un tag o un SHA deja HEAD desacoplado. |
+| `createBranch`, `renameBranch` | `git branch`, `git switch --create`, `git branch --move` | Rechaza nombres inválidos o repetidos con un mensaje en español. |
+| `deleteBranch` | `git branch -d` / `-D` | Devuelve el commit al que apuntaba, para deshacer. Si no está mergeada, avisa (la interfaz ofrece forzar). |
+| `deleteRemoteBranch` | `git push <remoto> --delete refs/heads/…` | El remoto se separa del nombre buscando el más largo que coincida (los remotos pueden tener "/"). |
+| `setUpstream` | `git branch --set-upstream-to` / `--unset-upstream` | |
+| `fastForward` | `git merge-base --is-ancestor` + `merge --ff-only` o `update-ref` | Si la rama no es la actual se mueve sin cambiar de rama; `update-ref` recibe el valor viejo y falla si la rama cambió en el medio. |
+| `merge`, `rebase` | `git merge --no-edit [--no-ff \| --ff-only]`, `git rebase` | Se pasa el nombre corto si no es ambiguo, así Git escribe el mensaje de siempre ("Merge branch 'x'"). |
+| `cherryPick`, `revert` | `git cherry-pick`, `git revert --no-edit` | De un commit de merge se toman los cambios respecto del primer padre (`-m 1`). |
+| `reset` | `git reset --soft \| --mixed \| --hard \| --keep` | `keep` se usa para deshacer: vuelve atrás pero se niega si pisaría cambios sin commitear. |
+| `continueOperation`, `abortOperation` | `git commit --no-edit --cleanup=strip`, `git <op> --continue \| --abort` | La operación a medio hacer se detecta por los archivos de `.git` (`MERGE_HEAD`, `rebase-merge/`, etc.) con `git rev-parse --git-path`, que también anda en worktrees. |
+| `createTag`, `deleteTag`, `pushTag`, `deleteRemoteTag` | `git tag [--annotate --file=-]`, `git tag --delete`, `git push` | El mensaje de un tag anotado va por la entrada estándar. |
+| `pull` | `git pull --no-edit` con `--no-rebase --ff`, `--ff-only` o `--rebase` | Sin rama remota que seguir, explica qué hacer. |
+| `push` | `git push [--force-with-lease] <remoto> refs/heads/x:<su remota>` | Sin remota que seguir, la publica con el mismo nombre en origin (o el único remoto) con `--set-upstream`. |
+| `listStashes`, `stash`, `applyStash`, `dropStash`, `restoreStash`, `renameStash` | `git stash list/push --include-untracked/apply/pop/drop/store` | Cambiar el mensaje es borrar y volver a guardar (`stash store`): Git no lo permite directo. |
+| `formatPatch` | `git format-patch -1 --stdout` | Para "Guardar como parche". |
+
+Decisiones:
+
+- **Conflictos no son errores:** las operaciones que pueden frenarse (merge, rebase, cherry-pick, revert, pull, aplicar un stash) devuelven `'done'` o `'conflicts'`. Si Git falla pero dejó archivos en conflicto o una operación a medio hacer, se devuelve `'conflicts'` y la interfaz muestra el aviso con Abortar y Continuar.
+- **Nunca se abre un editor:** `GIT_EDITOR` y `GIT_SEQUENCE_EDITOR` valen `true` y `GIT_MERGE_AUTOEDIT=no`. Si un comando quisiera editar un mensaje (como `rebase --continue`), usa el que propone Git en vez de quedar esperando.
+- **Tiempos:** las operaciones con el servidor y las que corren hooks tienen 10 minutos de límite; las lecturas, 1 minuto.
+- `workingStatus` ahora también trae la remota que sigue la rama actual, cuánto se adelanta y se atrasa (`# branch.upstream` y `# branch.ab` de `git status --porcelain=v2`) y la operación a medio hacer. `listRefs` trae lo mismo para cada rama local (`%(upstream)` y `%(upstream:track)`).
+- **Ramas ocultas:** `listCommits` recibe un filtro (ramas ocultas o las únicas a mostrar). Las referencias que quedan a la vista se pasan por la entrada estándar (`git log --stdin`), así no hay que escapar nombres con caracteres especiales.
+
+### Progreso, búsqueda en el código y "abrir en"
+
+- **Progreso** (`git/progress.ts`): fetch, pull y push corren con `--progress`. `run.ts` acepta `onStderr` y `progressReader` arma las líneas, que Git separa con `\r`. Cada línea como "Receiving objects: 45%" se traduce a `{ phase: 'Recibiendo objetos', percent: 45 }`. `ipc.ts` manda como mucho diez avisos por segundo por el canal `git:progress`, con la carpeta del repo. Cada pestaña muestra solo los suyos.
+- **Buscar en el código** (`searchCode` en `git/repo.ts`): `git log --branches --remotes --tags -S<texto>`, hasta 2.000 commits. La interfaz espera 400 ms después de la última tecla.
+- **Abrir en** (`main/open.ts`):
+  - **carpeta:** `shell.openPath`;
+  - **terminal:** Windows Terminal o `cmd` en Windows, Terminal en macOS, `x-terminal-emulator` (u otras conocidas) en Linux;
+  - **VS Code:** el comando `code`.
+
+  Antes se confirma con Git que la ruta sea la raíz de un repo. En Windows `code` se lanza con la consola, con la ruta entre comillas; si la ruta tuviera comillas, se rechaza.
 
 ### Linaje de ramas (`src/main/git/branches.ts`)
 
@@ -173,29 +214,58 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
   - Abre, cierra y cambia de pestaña, con los atajos.
   - Recuerda las pestañas abiertas y las restaura al arrancar, sin duplicar una carpeta escrita de dos formas.
   - Cada pestaña queda montada (se oculta con `hidden`), así no se pierde lo que estabas mirando.
-- `views/RepoWorkspace.tsx`: todo lo de un repo: barra de herramientas, vistas Historial y Comparar, avisos de error y la vigilancia del disco (`watchRepo` por pestaña; los avisos traen la carpeta del repo). Maneja dos contadores: `reloadKey` (ramas e historial: fetch, commit, cambios en `.git/refs`) y `statusKey` (carpeta de trabajo).
+- `views/RepoWorkspace.tsx`: todo lo de un repo: barra de herramientas (Deshacer, Rehacer, Pull, Push, Rama, Stash, Pop), vistas Historial y Comparar, avisos (error, operación a medio hacer y el de abajo con Deshacer) y la vigilancia del disco (`watchRepo` por pestaña; los avisos traen la carpeta del repo).
+  - Tiene el estado del repo: ramas, estado de la carpeta de trabajo, stashes, remotos y el filtro del gráfico (guardado por repo).
+  - Maneja dos contadores: `reloadKey` (ramas e historial: fetch, commit, cambios en `.git/refs`) y `statusKey` (carpeta de trabajo).
+- `views/useRepoActions.tsx`: las operaciones desde la interfaz.
+  - **Menús:** arma los de clic derecho de ramas, tags, commits, la fila WIP, stashes y de soltar una rama sobre otra. `tidy` (en `ContextMenu.tsx`) saca los ítems que no corresponden y los separadores que sobran.
+  - **Ejecución:** una operación a la vez, con el texto de lo que se está haciendo en la barra. Las que piden datos o confirmación usan un diálogo, y si fallan, el error queda en el diálogo.
+  - **Deshacer:** cada operación devuelve cómo deshacerse y rehacerse. Las que mueven HEAD (merge, rebase, cherry-pick, revert, pull, commit) vuelven al commit de antes con `reset --keep` (o `--soft` en un commit), y antes verifican que el repo siga en la misma rama. La pila (`lib/undo.ts`) guarda 50 por repo y se pierde al cerrar la app.
+  - **Casos especiales:** checkout con cambios que se pisarían (ofrece stash), push rechazado (ofrece `--force-with-lease`), rama sin mergear (ofrece forzar el borrado). Descartar todo guarda un stash y lo borra, así Deshacer lo recupera.
+- `components/ContextMenu.tsx`: menú contextual propio, en un portal, con submenús, ítems tildables y manejo con el teclado (flechas, Enter, Esc). Se acomoda para no salirse de la ventana.
+- `components/Dialog.tsx`: diálogo para pedir nombres y confirmar, con campos de texto, casillas y listas. `show()` devuelve si se confirmó.
+- `components/Splitter.tsx`: divisor entre paneles, vertical u horizontal según el lado del panel. Se arrastra o se mueve con las flechas, y con doble clic vuelve al tamaño original.
+- `lib/dock.ts`: disposición de los tres cuadros.
+  - **Modelo:** cada panel lateral (ramas, detalle) se pega a un lado. La lista va en orden: el primero es el de más afuera y ocupa todo su borde.
+  - **Grilla:** `layoutGrid` la convierte en una sola grilla CSS. "Corta" cada panel abierto de un borde de la región que queda y le suma una pista para él y otra para su divisor. Todos los cuadros son hijos directos de la misma grilla, así mover u ocultar uno no vuelve a crear los demás: no se pierde el scroll ni lo que se estaba mirando.
+  - **Arrastrar:** `movePanel` pega un panel a un lado, afuera de todo o al lado del gráfico. `moveCenter` lleva el gráfico a un borde pasando al lado opuesto los paneles que estaban ahí. `nearestSide` decide el lado según el mouse.
+  - **Presets:** seis disposiciones listas.
+- `views/HistoryView.tsx` (disposición): el arrastre es con eventos de puntero, no con drag and drop de HTML. Sobre el gráfico, el panel va al lado del gráfico; sobre el resto, afuera de todo. Una capa encima muestra el destino. El arrastre se lleva en una variable y no dentro de un `setState`, así React no lo aplica dos veces.
+- `lib/columns.ts`: columnas del historial (ancho, orden y cuáles se ven) y cuáles se ocultan solas si falta espacio. Por defecto, como GitKraken: Rama / tag, Gráfico y Mensaje.
+- `lib/ghost.ts`: la rama fantasma. Sube desde un commit hacia sus hijos siguiendo la línea de primeros padres (prefiere el mismo carril) hasta encontrar una etiqueta de rama. Se calcula solo para la fila con el mouse encima y la elegida.
+- `lib/fuzzy.ts` y `components/CommandPalette.tsx`: la paleta de comandos (Ctrl+P). La búsqueda difusa no distingue tildes y suma por letras seguidas y por inicio de palabra. Los comandos los arma `RepoWorkspace`: operaciones, checkout y linaje de cada rama, vistas, temas, zoom, "abrir en" y atajos.
+- `lib/links.ts`: direcciones de commits, ramas y pull/merge requests en GitHub y GitLab.
 - `components/TitleBar.tsx`: barra de título propia, con el logo y las pestañas.
   - **Windows:** `titleBarStyle: 'hidden'` con `titleBarOverlay`; los botones nativos toman los colores del tema.
   - **macOS:** `hiddenInset`, con los semáforos a la izquierda.
   - **Linux:** se deja la barra del sistema, y las pestañas van en una fila propia.
-- `lib/appearance.tsx`: tema (sistema, claro u oscuro), vidrio y avatares. Aplica `data-theme` y `data-glass` al documento, el tema de Monaco y `nativeTheme.themeSource`, para que los diálogos nativos sigan el tema.
+- `lib/themes.ts`: los ocho temas. Cada uno es una paleta de 21 colores base, y `styles.css` deriva el resto con `color-mix` (bordes, hover, selección, vidrio, sombras). También tiene:
+  - `resolveColors`: aplica encima los colores que cambió el usuario;
+  - `contrastRatio` y `contrastProblems`: contraste WCAG;
+  - `exportTheme` e `importTheme`: el tema como texto JSON.
+- `lib/appearance.tsx`: modo (sistema, claro u oscuro), el tema de cada modo, los colores cambiados por tema, vidrio, avatares, fotos en el gráfico y zoom. Pone los colores como variables CSS en `:root`, `data-theme` y `data-glass` en el documento, arma el tema de Monaco con los mismos colores y manda `nativeTheme.themeSource` y los colores de la barra nativa.
+  - **Migración:** las preferencias de una versión anterior (sin `version`) pasan a tener el vidrio apagado, que desde la v0.6 es lo normal. `loadSetting` completa con los valores por defecto, así que la base se carga con versión 0 para reconocer las viejas.
+- `components/ThemeEditor.tsx`: panel lateral para cambiar cada color del tema activo. No bloquea la app, así los cambios se ven en vivo. Muestra los avisos de contraste y permite copiar y pegar el tema.
+- **Zoom:** `webFrame.setZoomFactor` desde el preload (entre 50 y 300 %); los atajos están en `App.tsx`.
 - `components/AppearanceMenu.tsx`: el menú de Apariencia. Se dibuja en un portal porque el desenfoque de la barra crea una capa propia que lo dejaría debajo de los paneles.
 - `components/BranchInsightCard.tsx` y la marca de linaje en `CommitList.tsx`: el linaje de la rama elegida.
-- `views/HistoryView.tsx`: pestaña Historial. Panel de ramas, lista de commits con la fila WIP, búsqueda y panel derecho, que muestra el detalle del commit o, con la fila WIP elegida, el panel de preparación. Cuando un archivo local abierto se prepara entero, la vista pasa a mostrarlo como preparado; si ya no tiene cambios, vuelve al gráfico.
+- `views/HistoryView.tsx`: pestaña Historial. Panel de ramas, lista de commits con la fila WIP, búsqueda y panel derecho, que muestra el detalle del commit (o de un stash) o, con la fila WIP elegida, el panel de preparación. Los paneles laterales se ensanchan con divisores y se ocultan con Ctrl+K y Ctrl+J; sus anchos y las columnas se guardan en las preferencias. Cuando un archivo local abierto se prepara entero, la vista pasa a mostrarlo como preparado; si ya no tiene cambios, vuelve al gráfico.
 - `components/WorkingTreePanel.tsx`: archivos sin preparar, preparados y con conflictos, y la caja de commit. El borrador del mensaje vive en `HistoryView`, así no se pierde al mirar otro commit.
 - `components/WorkingFileView.tsx`: un archivo local en el centro, por bloques (`HunkView`) o lado a lado (`DiffView` con el índice o la carpeta de trabajo como origen).
 - `components/HunkView.tsx`: bloques del diff con sus botones y selección de líneas.
 - `views/CompareView.tsx`: pestaña Comparar ramas.
 - `components/CommitList.tsx`: lista de commits **virtualizada**. Solo dibuja las filas visibles (más un margen), así 20.000 commits se mueven igual de rápido que 20. Al acercarse al final pide otra tanda de 1.000.
+  - **Encabezado:** el borde entre dos columnas cambia el ancho de la de la izquierda (o de la derecha, si la de la izquierda es el mensaje, que es flexible); el título se arrastra para reordenar.
+  - **Etiquetas de ramas:** se arrastran con drag and drop de HTML (`application/x-gitono-ref`). Soltar una sobre otra abre el menú de merge y rebase.
 - `components/CommitGraphCell.tsx`: el gráfico de una fila, en SVG.
-- `components/RefsPanel.tsx`: ramas locales, remotas agrupadas por remoto y tags.
+- `components/RefsPanel.tsx`: ramas locales (con commits para subir y bajar), remotas agrupadas por remoto, tags y stashes. Cada rama tiene un ojo para ocultarla del gráfico. Las secciones cerradas se recuerdan.
 - `components/CommitDetails.tsx`: detalle del commit elegido.
 - `components/RefSelect.tsx`: selector de rama agrupado en locales, remotas y tags.
 - `components/FileTree.tsx`: árbol de archivos cambiados. Las carpetas con un solo hijo se compactan (`src/main/git`), como en VS Code.
 - `components/DiffView.tsx`: visor Monaco. El editor se crea una sola vez; al cambiar de archivo solo se reemplazan los modelos, así no parpadea.
-- `monaco.ts`: configuración de Monaco (workers locales, idioma español, sin validaciones porque es de solo lectura). Tiene un tema claro y uno oscuro con la paleta de la app.
+- `monaco.ts`: configuración de Monaco (workers locales, idioma español, sin validaciones porque es de solo lectura). Su tema se arma con los colores del tema activo cada vez que cambian.
 - `lib/refs.ts`: arma las etiquetas de cada commit y junta una rama local con su remota cuando apuntan al mismo commit.
-- `lib/settings.ts`: preferencias guardadas (ancho del panel, opciones del diff, pestaña). Si el almacenamiento falla, se usan los valores por defecto.
+- `lib/settings.ts`: preferencias guardadas (paneles y columnas del historial, secciones cerradas del panel de ramas, modo de pull, ramas ocultas por repo, opciones del diff, pestañas). Si el almacenamiento falla, se usan los valores por defecto.
 
 Los estados de archivo usan íconos (más, menos, lápiz, flecha) sobre el color del estado, en lugar de las letras de Git (A, M, D), para no confundirlos con "rama A" y "rama B" (`components/StatusBadge.tsx`).
 
@@ -228,6 +298,7 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
   - commit en un repo vacío y enmendar.
 - `git/watch.test.ts`: clasificación de cambios en el disco y agrupado de ráfagas.
 - `shared/patch.test.ts`: lectura de diffs y armado de parches parciales (también "sin salto de línea al final").
+- `git/ops.test.ts`: operaciones contra un clon real y un remoto "bare" que hace de servidor: ramas (crear, renombrar, borrar, nombres inválidos, checkout de remotas y de commits, avance rápido, rama remota que sigue), merge con y sin conflictos (continuar y abortar), rebase con conflicto, cherry-pick y revert (también de merges), los tres resets, tags (subir y borrar en el servidor), stash (archivos nuevos, aplicar, pop, borrar, recuperar, renombrar), push de una rama nueva, pull, push rechazado y forzado, y el filtro de ramas ocultas.
 - `git/branches.test.ts`: linaje contra un repo real: mergeada con commit de merge, por avance rápido, sin mergear, recién creada (con `git branch` y con `checkout -b`), la principal, y las ramas que contienen un commit.
 - `avatars.test.ts`: emails privados de GitHub, Gravatar (también sin foto), caché en disco y la API de GitHub fallando.
 - `providers/providers.test.ts`: lectura de URLs y detección de plataforma.
@@ -235,11 +306,21 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
 - `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados, fila WIP punteada).
 - `renderer/src/lib/refs.test.ts`: etiquetas de cada commit.
 - `renderer/src/lib/tree.test.ts`: armado del árbol de archivos.
+- `renderer/src/lib/columns.test.ts`: columnas que se ven según el espacio, el orden y los anchos elegidos.
+- `renderer/src/lib/undo.test.ts`: pila de deshacer y rehacer.
+- `renderer/src/lib/links.test.ts`: direcciones de GitHub y GitLab.
+- `renderer/src/components/ContextMenu.test.ts`: limpieza de ítems y separadores de los menús.
+- `renderer/src/lib/themes.test.ts`: los ocho temas completos y con contraste WCAG AA, colores del usuario, avisos de contraste, exportar e importar.
+- `renderer/src/lib/dock.test.ts`: grilla de cada disposición, mover paneles y el gráfico, presets y disposiciones guardadas rotas.
+- `renderer/src/lib/ghost.test.ts`: rama fantasma (misma rama, rama ya mergeada, sin ramas).
+- `renderer/src/lib/fuzzy.test.ts`: búsqueda difusa.
+- `git/progress.test.ts`: lectura del progreso de Git, también cuando las líneas llegan cortadas.
 
 ## Distribución
 
 - `npm run dist` compila con electron-vite y empaqueta con electron-builder (`electron-builder.yml`). Genera un instalador NSIS en `dist/`.
-- **La carpeta de instalación es fija** (`%LOCALAPPDATA%\Programs\GitOno`). El desinstalador de electron-builder hace `RMDir /r` de la carpeta de instalación, y al actualizar, el instalador ejecuta primero el desinstalador de la versión anterior. Si se dejara elegir la carpeta y coincidiera con una carpeta con otros archivos (por ejemplo, la del proyecto), se borraría entera.
+- **La carpeta de instalación es fija** (`%LOCALAPPDATA%\Programs\GitOno`, o `C:\Program Files\GitOno` si se instala para todos los usuarios). El desinstalador de electron-builder hace `RMDir /r` de la carpeta de instalación, y al actualizar, el instalador ejecuta primero el desinstalador de la versión anterior (antes mueve todo a una carpeta temporal y, si un archivo está en uso, lo devuelve y aborta). Si se dejara elegir la carpeta y coincidiera con una carpeta con otros archivos (por ejemplo, la del proyecto), se borraría entera.
+- **Protección extra** (`build/installer.nsh`, incluido con `nsis.include`): en `customUnInit` el desinstalador se niega a seguir si la carpeta tiene `.git` o `package.json`. Se agregó después de que una instalación vieja quedara registrada en la carpeta del proyecto (ver la bitácora del 24/10/2026).
 - Al instalador solo entra `out/` y el `package.json`. React y Monaco están en `devDependencies` porque Vite ya los incluye en `out/renderer`; así no se copian dos veces y el `app.asar` pesa unos 24 MB.
 - La app empaquetada carga la interfaz desde `app.asar` con `file://`. Los workers de Monaco funcionan ahí sin configuración extra.
 - **Logo de Ono:** lo genera `build/logo/ono.mjs` (`node build/logo/ono.mjs`), con rulos procedurales de semilla fija y la cara dibujada a mano.

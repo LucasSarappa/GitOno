@@ -40,19 +40,44 @@ Lo que GitKraken muestra arriba de todo como "WIP".
 - [x] "Comparar con main" desde el linaje de una rama.
 - [ ] Probar la barra de título propia en macOS y la fila de pestañas en Linux.
 
-## Etapa 3: Operaciones
+## Etapa 3: Operaciones ✅ (v0.5)
 
-- [ ] Checkout de ramas (doble clic) y de commits.
-- [ ] Ramas: crear, renombrar y borrar (local y remota).
-- [ ] Pull, push y fetch con progreso; publicar una rama nueva.
-- [ ] Integrar cambios:
-  - [ ] merge, rebase, cherry-pick y revert;
-  - [ ] reset suave, mixto y duro, con confirmación.
-- [ ] Tags: crear, borrar y publicar.
-- [ ] Stash: guardar, aplicar, sacar (pop) y borrar; verlos en el gráfico.
-- [ ] Menú contextual en commits y ramas con todas estas acciones.
-- [ ] Arrastrar una rama sobre otra para hacer merge o rebase.
-- [ ] Deshacer y rehacer la última operación (usando el reflog).
+- [x] Checkout de ramas (doble clic), de remotas (crea la local que la sigue) y de commits. Si hay cambios que se pisarían, ofrece guardarlos en un stash.
+- [x] Ramas: crear, renombrar y borrar (local y remota); elegir qué rama remota sigue; avanzar una rama hasta otra sin cambiarte de rama.
+- [x] Pull (tres modos, con uno por defecto), push, fetch y publicar una rama nueva. Push forzado con `--force-with-lease` si el servidor rechaza.
+- [x] Integrar cambios:
+  - [x] merge (normal, `--no-ff` o `--ff-only`), rebase, cherry-pick y revert (también de commits de merge);
+  - [x] reset suave, mixto y duro, con confirmación;
+  - [x] aviso de operación a medio hacer, con Abortar y Continuar.
+- [x] Tags: crear (livianos o anotados), borrar y publicar, también borrarlos del servidor.
+- [x] Stash: guardar, aplicar, sacar (pop), ver sus cambios, cambiar el mensaje y borrar.
+- [x] Menú contextual en commits, ramas, tags, la fila WIP y stashes.
+- [x] Arrastrar una rama sobre otra: merge, rebase, fast-forward o comparar.
+- [x] Deshacer y rehacer (Ctrl+Z / Ctrl+Y), con un aviso que ofrece deshacer lo último.
+- [x] Abrir ramas y commits en GitHub/GitLab y crear el pull request o merge request.
+- [ ] Ver los stashes en el gráfico, como nodos propios.
+- [x] Progreso de pull, push y fetch, y fetch automático cada tanto (v0.6).
+- [ ] Elegir varias ramas para borrarlas juntas.
+- [ ] Fijar ramas a la izquierda del gráfico ("Pin to left").
+
+## Interfaz flexible ✅ (v0.5)
+
+- [x] Paneles laterales que se ensanchan arrastrando el borde y se ocultan (Ctrl+K y Ctrl+J).
+- [x] Columnas del historial: ancho, orden y cuáles se ven (clic derecho en el encabezado).
+- [x] Ocultar ramas del gráfico o mostrar solo algunas.
+- [x] Zoom de la interfaz (Ctrl + y Ctrl −) (v0.6).
+- [ ] Preferencias por repo (hoy las columnas y paneles valen para todos).
+
+## Temas, disposición y menos carga visual ✅ (v0.6)
+
+- [x] Ocho temas (cuatro claros y cuatro oscuros) y todos los colores personalizables, con aviso de contraste y para copiar y pegar un tema.
+- [x] Los tres cuadros se acomodan arrastrándolos a cualquier borde, con seis disposiciones listas.
+- [x] Menos carga visual, como GitKraken: paneles pegados, tres columnas por defecto, fotos en los nodos, etiquetas con tinte, barra con el nombre debajo del ícono. Diagnóstico en `docs/evaluacion-ux.md`.
+- [x] Rama fantasma al pasar por un commit y lista desplegable de etiquetas "+N".
+- [x] Paleta de comandos (Ctrl+P).
+- [x] Buscar en el código de los commits (`git log -S`).
+- [x] Abrir el repo en el explorador, una terminal o VS Code.
+- [ ] Probar los temas y la disposición en macOS y Linux.
 
 ## Etapa 4: Herramientas avanzadas
 
@@ -60,7 +85,8 @@ Lo que GitKraken muestra arriba de todo como "WIP".
 - [ ] Rebase interactivo visual: reordenar, unir (squash), editar y descartar commits.
 - [ ] Historial de un archivo y blame (quién cambió cada línea).
 - [ ] Submódulos, worktrees y Git LFS.
-- [ ] Paleta de comandos (Ctrl+P) y atajos configurables.
+- [x] Paleta de comandos (Ctrl+P) (v0.6).
+- [ ] Atajos configurables.
 
 ## Etapa 5: Plataformas (GitHub, GitLab y otras)
 

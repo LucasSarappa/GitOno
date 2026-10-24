@@ -9,12 +9,14 @@ interface Props {
   onGoTo(sha: string): void
   onCompare(baseRef: string, ref: string): void
   onClose(): void
+  /** Dentro del panel de detalle: en columna y sin vidrio. */
+  compact?: boolean
 }
 
 /** Resumen del linaje de la rama elegida: de dónde sale, qué tiene y dónde se mergeó. */
-export function BranchInsightCard({ name, insight, onGoTo, onCompare, onClose }: Props) {
+export function BranchInsightCard({ name, insight, onGoTo, onCompare, onClose, compact = false }: Props) {
   return (
-    <section className="insight glass" aria-label={`Linaje de ${name}`}>
+    <section className={compact ? 'insight insight--compact' : 'insight glass'} aria-label={`Linaje de ${name}`}>
       <div className="insight__title">
         <GitBranch size={15} strokeWidth={1.75} aria-hidden />
         <strong>{name}</strong>

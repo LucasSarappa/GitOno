@@ -1574,29 +1574,92 @@ button.ref-pill--current:hover {
   padding: 24px;
   text-align: center;
 }
+/* Encabezado compacto, como GitKraken: asunto, autor y fecha en una línea, y SHA, padre y ramas en
+   chips. Lo demás se abre a pedido o se elige en el menú ⋯ del panel. */
 .details__header {
-  padding: 14px 16px 12px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line);
-  max-height: 42%;
+  max-height: 46%;
   overflow: auto;
 }
 .details__subject {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1.35;
   letter-spacing: -0.005em;
 }
 .details__body {
-  margin: 8px 0 0;
+  margin: 0;
   white-space: pre-wrap;
   color: var(--text-2);
+}
+.details__body--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.link--plain {
+  justify-self: start;
+  font-family: var(--font);
+  font-size: 12px;
+}
+.details__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip--mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.chip--quiet {
+  color: var(--text-3);
+  border-style: dashed;
+}
+.chip--open {
+  border-color: var(--accent);
+}
+.chevron-down {
+  transition: transform 150ms var(--ease);
+}
+.chevron-down--open {
+  transform: rotate(180deg);
+}
+.details__files-header .details__view {
+  margin-left: auto;
+  align-self: center;
+}
+.segmented--tiny .segmented__item {
+  height: 20px;
+  padding: 0 5px;
+}
+/* El linaje dentro del panel de detalle: arriba, en columna y sin vidrio. */
+.insight--compact {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--selected) 55%, transparent);
+  animation: none;
+}
+.insight--compact .insight__actions {
+  margin-left: 0;
+  justify-content: space-between;
 }
 .details__merge {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 10px 0 0;
+  margin: 0;
   padding: 6px 10px;
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--added) 12%, transparent);
@@ -1614,7 +1677,13 @@ button.ref-pill--current:hover {
 .details__person {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.details__person strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .details__author {
   overflow: hidden;
@@ -1653,10 +1722,13 @@ button.ref-pill--current:hover {
   flex-wrap: wrap;
   gap: 4px;
   align-items: center;
+  max-height: 120px;
+  overflow: auto;
 }
 .details__files-header {
   display: flex;
   align-items: baseline;
+  white-space: nowrap;
   gap: 8px;
   padding: 10px 16px 6px;
   font-variant-numeric: tabular-nums;
@@ -2586,7 +2658,11 @@ body.resizing * {
 .ref-row > .ref-item {
   flex: 1;
   min-width: 0;
-  padding-right: 28px;
+  padding-right: 52px;
+}
+/* La mira (ver de dónde sale) va a la izquierda del ojo. */
+.ref-row .ref-row__lineage {
+  right: 28px;
 }
 .ref-row__eye {
   position: absolute;

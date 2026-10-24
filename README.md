@@ -51,6 +51,13 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 - **Abrir el repo** en el explorador, en una terminal o en VS Code: clic en el nombre del repo.
 - **Zoom** de toda la interfaz (Ctrl+= / Ctrl+− / Ctrl+0, o en Apariencia).
 - **Lista de atajos**, desde la paleta de comandos.
+- **Panel de detalle liviano:**
+  - el autor y la fecha en una línea;
+  - SHA, padres y ramas en chips ("en 3 ramas" se despliega con un clic);
+  - la descripción larga, recortada con "Ver más";
+  - los archivos, en árbol o en lista.
+
+  Con el ⋯ del panel se elige qué mostrar.
 
 ### Operaciones (clic derecho, como en GitKraken)
 
@@ -101,7 +108,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 ### Linaje de las ramas
 
-- Al elegir una rama (en el panel izquierdo, en su etiqueta del gráfico o en "En ramas" del detalle de un commit), el gráfico **resalta sus commits y atenúa el resto**.
+- Un clic en una rama solo lleva a su commit, como en GitKraken. El linaje se pide a propósito: con la **mira** que aparece al pasar el mouse por una rama del panel, o con clic derecho → **Ver de dónde sale**. Entonces el gráfico **resalta sus commits y atenúa el resto**, y el linaje se muestra arriba del panel de detalle, sin tapar el gráfico (si el detalle está oculto, va arriba del gráfico).
 - El gráfico marca **"nace acá"** en el commit donde salió y **"mergeada en main"** en el merge.
 - Una tarjeta resume el linaje:
   - de qué rama sale y en qué commit;

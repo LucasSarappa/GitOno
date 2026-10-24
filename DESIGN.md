@@ -229,8 +229,18 @@ Vidrio en capas: el fondo cálido, los paneles translúcidos encima y las ventan
 - **Rama fantasma:** al pasar el mouse por un commit sin etiquetas (o al elegirlo), su rama más cercana aparece tenue y punteada, como en GitKraken.
 - Una línea punteada del color del carril une cada etiqueta con su nodo.
 
+### Panel de detalle
+- Compacto, como GitKraken:
+  - asunto (14px);
+  - autor y fecha en una sola línea;
+  - SHA, padres y ramas como chips;
+  - descripción recortada a 3 líneas con "Ver más";
+  - archivos en árbol o lista.
+- El menú ⋯ del panel elige qué secciones se ven.
+
 ### Linaje de la rama (componente distintivo)
-- **Tarjeta:** vidrio teñido de caramelo arriba del gráfico. Muestra de dónde sale (con enlace al commit), desde dónde se creó, cuántos commits propios tiene, si se mergeó (enlace al merge) y un botón para comparar con la principal.
+- **Se pide, no aparece solo:** un clic en una rama va a su commit. El linaje se abre con la mira del panel de ramas o con "Ver de dónde sale".
+- **Tarjeta:** arriba del panel de detalle, teñida del acento y en columna; si el detalle está oculto, va arriba del gráfico, con vidrio. Muestra de dónde sale (con enlace al commit), desde dónde se creó, cuántos commits propios tiene, si se mergeó (enlace al merge) y un botón para comparar con la principal.
 - **En la lista:** las filas del linaje en negrita con halo en el nodo, el resto atenuado al 32 %, y pastillas "nace acá" (caramelo) y "mergeada en <rama>" (verde).
 
 ## Do's and Don'ts

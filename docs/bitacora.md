@@ -4,6 +4,34 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-24 — Sesión 5 (continuación): detalle liviano y linaje a pedido
+
+### Qué se hizo
+
+- **Panel de detalle más liviano y configurable,** al estilo GitKraken:
+  - el autor y la fecha en una línea (el email y la fecha exacta, en el tooltip);
+  - SHA (clic para copiar), padres y ramas en chips, con "en 3 ramas" que se despliega;
+  - la descripción larga, recortada a tres líneas con "Ver más";
+  - los archivos, en árbol o en lista.
+
+  El menú ⋯ del panel elige qué mostrar, con preferencias en `lib/detailsPrefs.ts`.
+- **El linaje ya no salta solo:** un clic en una rama lleva a su commit, como en GitKraken. El linaje se pide con la mira del panel de ramas o con "Ver de dónde sale", y se muestra arriba del panel de detalle en vez de en una franja sobre el gráfico.
+
+### Por qué
+
+- El autor pidió simplificar el detalle, que quedaba cargado, y encontraba invasiva la tarjeta que aparecía con cada clic en una rama.
+- El linaje sigue siendo el diferencial de GitOno, así que se mantiene a un clic, pero ahora se pide a propósito.
+
+### Cómo se probó
+
+- 186 tests, typecheck y build.
+- En la app:
+  - clic en una etiqueta: va al commit sin abrir el linaje;
+  - mira en feature/login: el linaje se ve en el detalle, con el resaltado y las marcas en el gráfico;
+  - el detalle compacto en un merge.
+
+---
+
 ## 2026-10-24 — Sesión 5: temas, paneles acomodables y menos carga visual (v0.6)
 
 ### Qué se hizo

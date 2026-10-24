@@ -1,17 +1,15 @@
-import { Check, Copy, GitBranch, GitMerge } from 'lucide-react'
+import { ArrowUp, Check, ChevronDown, Copy, FolderTree, GitBranch, GitMerge, List } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { CommitDetails as Details, FileChange } from '../../../shared/types'
 import { api } from '../api'
 import { absoluteDate, relativeDate, shortSha } from '../lib/format'
 import { describeMerge } from '../lib/merge'
-import { buildTree } from '../lib/tree'
+import { setDetailsPrefs, useDetailsPrefs } from '../lib/detailsPrefs'
+import { buildTree, type TreeNode } from '../lib/tree'
 import { Avatar } from './Avatar'
 import { FileTree } from './FileTree'
 
 type LoadState = { status: 'loading' } | { status: 'ready'; details: Details } | { status: 'error'; message: string }
-
-/** Cuántas ramas se nombran antes de resumir el resto ("y 12 más"). */
-const MAX_BRANCHES = 6
 
 interface Props {
   root: string
@@ -31,11 +29,16 @@ export function CommitDetails({ root, sha, refsVersion, selectedPath, onOpenFile
   const [branches, setBranches] = useState<string[] | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [copied, setCopied] = useState(false)
+  const [bodyOpen, setBodyOpen] = useState(false)
+  const [branchesOpen, setBranchesOpen] = useState(false)
+  const prefs = useDetailsPrefs()
 
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
     setCopied(false)
+    setBodyOpen(false)
+    setBranchesOpen(false)
     api.commitDetails(root, sha).then(
       (details) => !cancelled && setState({ status: 'ready', details }),
       (error: Error) => !cancelled && setState({ status: 'error', message: error.message })
@@ -76,14 +79,30 @@ export function CommitDetails({ root, sha, refsVersion, selectedPath, onOpenFile
   }
 
   const copySha = () => {
-    void api.copyText(details.sha).then(() => setCopied(true))
+    void api.copyText(details.sha).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    })
   }
+
+  // En lista, cada archivo con su ruta completa; en árbol, agrupados por carpeta.
+  const nodes: TreeNode[] = prefs.files === 'list' ? details.files.map((change) => ({ kind: 'file', name: change.path, change })) : tree
+  const longBody = body.split('\n').length > 3 || body.length > 240
 
   return (
     <div className="details">
       <div className="details__header">
         <h2 className="details__subject">{details.subject}</h2>
-        {body && <p className="details__body">{body}</p>}
+        {body && (
+          <>
+            <p className={`details__body${prefs.fullMessage || bodyOpen || !longBody ? '' : ' details__body--clamped'}`}>{body}</p>
+            {longBody && !prefs.fullMessage && (
+              <button className="link link--plain" onClick={() => setBodyOpen((o) => !o)}>
+                {bodyOpen ? 'Ver menos' : 'Ver más'}
+              </button>
+            )}
+          </>
+        )}
         {isMerge && (
           <p className="details__merge">
             <GitMerge size={14} strokeWidth={1.75} aria-hidden />
@@ -105,82 +124,88 @@ export function CommitDetails({ root, sha, refsVersion, selectedPath, onOpenFile
             )}
           </p>
         )}
-      </div>
 
-      <div className="details__meta">
-        <div className="details__person">
-          <Avatar name={details.authorName} email={details.authorEmail} size={32} />
-          <div>
-            <div className="details__author">
-              <strong>{details.authorName}</strong> <span className="text-2 small">{details.authorEmail}</span>
-            </div>
-            <div className="text-2 small" title={absoluteDate(details.authorDate)}>
-              {absoluteDate(details.authorDate)} · {relativeDate(details.authorDate)}
-            </div>
-          </div>
+        {/* Autor y fecha en una línea, como GitKraken; el email y la fecha exacta, en el tooltip. */}
+        <div
+          className="details__person"
+          title={`${details.authorName} <${details.authorEmail}>\n${absoluteDate(details.authorDate)}${
+            committedBySomeoneElse ? `\nCommit hecho por ${details.committerName} el ${absoluteDate(details.committerDate)}` : ''
+          }`}
+        >
+          <Avatar name={details.authorName} email={details.authorEmail} size={20} />
+          <strong>{details.authorName}</strong>
+          <span className="text-2">{relativeDate(details.authorDate)}</span>
         </div>
-        {committedBySomeoneElse && (
-          <div className="text-2 small">
-            Commit hecho por {details.committerName} el {absoluteDate(details.committerDate)}
-          </div>
-        )}
 
-        <dl className="details__facts">
-          <dt>SHA</dt>
-          <dd className="details__sha">
-            <code title={details.sha}>{details.sha}</code>
-            <button className="btn btn--icon btn--ghost btn--sm" onClick={copySha} aria-label="Copiar SHA" title={copied ? 'Copiado' : 'Copiar SHA'}>
-              {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={1.75} />}
+        {prefs.facts && (
+          <div className="details__chips">
+            <button className="chip chip--mono" onClick={copySha} title={`${details.sha}\nClic para copiarlo`}>
+              {copied ? <Check size={12} strokeWidth={2.25} aria-hidden /> : <Copy size={12} strokeWidth={1.75} aria-hidden />}
+              {copied ? 'Copiado' : shortSha(details.sha)}
             </button>
-          </dd>
-          <dt>{isMerge ? 'Padres' : 'Padre'}</dt>
-          <dd>
             {details.parents.length === 0 ? (
-              <span className="text-2">Primer commit del repositorio</span>
+              <span className="chip chip--quiet">primer commit</span>
             ) : (
-              details.parents.map((parent) => (
-                <button key={parent} className="link" onClick={() => onSelectCommit(parent)} title={parent}>
+              details.parents.map((parent, i) => (
+                <button key={parent} className="chip chip--mono" onClick={() => onSelectCommit(parent)} title={`${i === 0 ? 'Padre' : 'Segundo padre'}: ${parent}`}>
+                  <ArrowUp size={12} strokeWidth={1.75} aria-hidden />
                   {shortSha(parent)}
                 </button>
               ))
             )}
-          </dd>
-          <dt>En ramas</dt>
-          <dd className="details__branches">
-            {branches === null ? (
-              <span className="text-2">…</span>
-            ) : branches.length === 0 ? (
-              <span className="text-2">Ninguna (solo en tags o commits sueltos)</span>
+            {branches === null ? null : branches.length === 0 ? (
+              <span className="chip chip--quiet" title="Solo en tags o commits sueltos">en ninguna rama</span>
             ) : (
-              <>
-                {branches.slice(0, MAX_BRANCHES).map((name) => (
-                  <button key={name} className="chip" onClick={() => onSelectBranch(name)} title={`Ver de dónde sale ${name}`}>
-                    <GitBranch size={12} strokeWidth={1.75} aria-hidden />
-                    {name}
-                  </button>
-                ))}
-                {branches.length > MAX_BRANCHES && (
-                  <span className="text-2 small" title={branches.slice(MAX_BRANCHES).join('\n')}>
-                    y {branches.length - MAX_BRANCHES} más
-                  </span>
-                )}
-              </>
+              <button className={`chip${branchesOpen ? ' chip--open' : ''}`} onClick={() => setBranchesOpen((o) => !o)} aria-expanded={branchesOpen} title={branches.join('\n')}>
+                <GitBranch size={12} strokeWidth={1.75} aria-hidden />
+                {branches.length === 1 ? 'en 1 rama' : `en ${branches.length} ramas`}
+                <ChevronDown size={12} strokeWidth={2} className={`chevron-down${branchesOpen ? ' chevron-down--open' : ''}`} aria-hidden />
+              </button>
             )}
-          </dd>
-        </dl>
+          </div>
+        )}
+        {prefs.facts && branchesOpen && branches && branches.length > 0 && (
+          <div className="details__branches">
+            {branches.map((name) => (
+              <button key={name} className="chip" onClick={() => onSelectBranch(name)} title={`Ir al commit de ${name}`}>
+                <GitBranch size={12} strokeWidth={1.75} aria-hidden />
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="details__files-header">
+      <div className="details__files-header" title={isMerge ? 'Cambios respecto del primer padre (la rama en la que se mergeó)' : undefined}>
         <strong>
           {details.files.length} {details.files.length === 1 ? 'archivo' : 'archivos'}
         </strong>
         <span className="added">+{additions}</span>
         <span className="deleted">−{deletions}</span>
-        {isMerge && <span className="text-2 small">respecto del primer padre</span>}
+        <div className="segmented segmented--tiny details__view" role="radiogroup" aria-label="Ver los archivos">
+          <button
+            role="radio"
+            aria-checked={prefs.files === 'tree'}
+            className={`segmented__item${prefs.files === 'tree' ? ' segmented__item--active' : ''}`}
+            title="En árbol de carpetas"
+            onClick={() => setDetailsPrefs({ files: 'tree' })}
+          >
+            <FolderTree size={13} strokeWidth={1.75} aria-label="Árbol" />
+          </button>
+          <button
+            role="radio"
+            aria-checked={prefs.files === 'list'}
+            className={`segmented__item${prefs.files === 'list' ? ' segmented__item--active' : ''}`}
+            title="En lista, con la ruta completa"
+            onClick={() => setDetailsPrefs({ files: 'list' })}
+          >
+            <List size={13} strokeWidth={1.75} aria-label="Lista" />
+          </button>
+        </div>
       </div>
       <div className="details__files">
         <FileTree
-          nodes={tree}
+          nodes={nodes}
           selectedPath={selectedPath}
           collapsed={collapsed}
           onSelect={(change) => onOpenFile(change, details)}
@@ -200,7 +225,7 @@ export function CommitDetails({ root, sha, refsVersion, selectedPath, onOpenFile
 
 function BranchLink({ name, onSelect }: { name: string; onSelect(name: string): void }) {
   return (
-    <button className="link link--branch" onClick={() => onSelect(name)} title={`Ver de dónde sale ${name}`}>
+    <button className="link link--branch" onClick={() => onSelect(name)} title={`Ir al commit de ${name}`}>
       {name}
     </button>
   )

@@ -28,7 +28,7 @@ import {
   type ScrollRequest,
   type WipSummary
 } from '../components/CommitList'
-import { useContextMenu, type MenuItem } from '../components/ContextMenu'
+import { tidy, useContextMenu, type MenuItem } from '../components/ContextMenu'
 import { DiffView, type DiffOptions } from '../components/DiffView'
 import { EmptyState } from '../components/EmptyState'
 import { RefsPanel, stashLabel } from '../components/RefsPanel'
@@ -40,6 +40,7 @@ import { shortSha } from '../lib/format'
 import { computeGraph } from '../lib/graph'
 import { labelsByCommit } from '../lib/refs'
 import { useAppearance } from '../lib/appearance'
+import { setDetailsPrefs, useDetailsPrefs } from '../lib/detailsPrefs'
 import {
   DEFAULT_LAYOUT,
   defaultSize,
@@ -146,6 +147,7 @@ interface Props {
 export function HistoryView(props: Props) {
   const { repo, active, searchSlot, refs, status, statusVersion, stashes, filter, reloadKey, options, showRequest, menus, onOptionsChange, onError } = props
   const { appearance } = useAppearance()
+  const detailsPrefs = useDetailsPrefs()
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [page, setPage] = useState<CommitPage | null>(null)
   const [loading, setLoading] = useState(false)
@@ -408,9 +410,11 @@ export function HistoryView(props: Props) {
     const tip = refByName.get(ref)?.target
     if (tip) selectCommit(tip, 'center')
   }
+  // Un clic en una rama solo lleva a su commit, como en GitKraken. El linaje (de dónde sale y dónde
+  // se mergeó) se pide aparte: clic derecho → "Ver de dónde sale", o el ícono de mira del panel.
   const selectBranch = (ref: string) => {
-    if (ref === lineageRef) setLineageRef(null)
-    else showBranch(ref)
+    const tip = refByName.get(ref)?.target
+    if (tip) selectCommit(tip, 'center')
   }
   const selectBranchByName = (name: string) => {
     const ref = refs.refs.find((r) => r.name === name)
@@ -522,7 +526,7 @@ export function HistoryView(props: Props) {
   const openPanelMenu = (panel: PanelId, at: MenuAnchor) => {
     const dock = layout.docks.find((d) => d.panel === panel)
     const sides: Side[] = ['left', 'right', 'top', 'bottom']
-    menu.open(at, [
+    menu.open(at, tidy([
       { kind: 'label', label: `Panel de ${PANEL_NAMES[panel].toLowerCase()}` },
       ...sides.map(
         (side): MenuItem => ({
@@ -533,8 +537,18 @@ export function HistoryView(props: Props) {
         })
       ),
       { kind: 'separator' },
+      ...(panel === 'details'
+        ? ([
+            { kind: 'separator' },
+            { kind: 'label', label: 'Qué mostrar' },
+            { kind: 'check', label: 'SHA, padres y ramas', checked: detailsPrefs.facts, onSelect: () => setDetailsPrefs({ facts: !detailsPrefs.facts }) },
+            { kind: 'check', label: 'Mensaje completo (sin "Ver más")', checked: detailsPrefs.fullMessage, onSelect: () => setDetailsPrefs({ fullMessage: !detailsPrefs.fullMessage }) },
+            { kind: 'check', label: 'Archivos en árbol de carpetas', checked: detailsPrefs.files === 'tree', onSelect: () => setDetailsPrefs({ files: detailsPrefs.files === 'tree' ? 'list' : 'tree' }) }
+          ] satisfies MenuItem[])
+        : []),
+      { kind: 'separator' },
       { label: `Ocultarlo (${panel === 'refs' ? 'Ctrl+K' : 'Ctrl+J'})`, icon: X, onSelect: () => togglePanel(panel) }
-    ])
+    ]))
   }
 
   /** Menú Disposición de la barra de herramientas. */
@@ -746,6 +760,7 @@ export function HistoryView(props: Props) {
           selectedRef={lineageRef}
           selectedStash={selectedStash?.sha ?? null}
           onSelectRef={(ref) => selectBranch(ref.ref)}
+          onShowLineage={(ref) => (ref.ref === lineageRef ? setLineageRef(null) : showBranch(ref.ref))}
           onSelectStash={(stash) => showStash(stash.sha)}
           onRefMenu={(ref, at) => menu.open(at, menus.ref(ref))}
           onStashMenu={(stash, at) => menu.open(at, menus.stash(stash))}
@@ -757,7 +772,8 @@ export function HistoryView(props: Props) {
       {splitterFor('refs')}
 
       <section ref={centerRef} className="panel glass history__center" style={grid.center}>
-        {lineageRef && open === null && (
+        {/* Con el panel de detalle oculto, el linaje se muestra arriba del gráfico. */}
+        {lineageRef && open === null && !grid.panels.details && (
           <BranchInsightCard
             name={refByName.get(lineageRef)?.name ?? lineageRef}
             insight={insight?.ref === lineageRef ? insight : null}
@@ -861,6 +877,16 @@ export function HistoryView(props: Props) {
         aria-label="Detalle"
       >
         {panelBar('details', selectedSha === WIP_SHA ? 'Cambios' : 'Detalle')}
+        {lineageRef && (
+          <BranchInsightCard
+            name={refByName.get(lineageRef)?.name ?? lineageRef}
+            insight={insight?.ref === lineageRef ? insight : null}
+            onGoTo={(sha) => selectCommit(sha, 'center')}
+            onCompare={props.onCompare}
+            onClose={() => setLineageRef(null)}
+            compact
+          />
+        )}
         <div className="history__details-body">
           {selectedSha === WIP_SHA && status ? (
             <WorkingTreePanel

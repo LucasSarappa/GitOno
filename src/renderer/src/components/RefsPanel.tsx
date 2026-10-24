@@ -1,4 +1,4 @@
-import { Archive, ArrowDown, ArrowUp, Check, ChevronRight, Cloud, Eye, EyeOff, Focus, Laptop, Search, Tag } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, Check, ChevronRight, Cloud, Crosshair, Eye, EyeOff, Focus, Laptop, Search, Tag } from 'lucide-react'
 import { useMemo, useState, type DragEvent, type MouseEvent } from 'react'
 import type { GraphFilter, RefInfo, RefList, StashInfo } from '../../../shared/types'
 import { relativeDate } from '../lib/format'
@@ -32,6 +32,8 @@ interface Props {
   onRefDoubleClick(ref: RefInfo): void
   onRefDrop(source: string, target: RefInfo, at: MenuAnchor): void
   onToggleHidden(ref: RefInfo): void
+  /** Muestra (o deja de mostrar) de dónde sale la rama y dónde se mergeó. */
+  onShowLineage(ref: RefInfo): void
 }
 
 /** Panel izquierdo del historial, como en GitKraken: ramas locales, remotas por remoto, tags y stashes. */
@@ -157,6 +159,15 @@ export function RefsPanel(props: Props) {
                           <Tracking info={ref} />
                         </button>
                         <button
+                          className={`ref-row__eye ref-row__lineage${selected ? ' ref-row__eye--on' : ''}`}
+                          aria-label={selected ? `Dejar de ver de dónde sale ${ref.name}` : `Ver de dónde sale ${ref.name}`}
+                          aria-pressed={selected}
+                          title={selected ? 'Dejar de ver el linaje (Esc)' : 'Ver de dónde sale y dónde se mergeó'}
+                          onClick={() => props.onShowLineage(ref)}
+                        >
+                          <Crosshair size={13} strokeWidth={1.75} />
+                        </button>
+                        <button
                           className={`ref-row__eye${isHidden ? ' ref-row__eye--on' : ''}`}
                           aria-label={isHidden ? `Mostrar ${ref.name} en el gráfico` : `Ocultar ${ref.name} en el gráfico`}
                           title={solo.has(ref.ref) ? 'Se muestra sola (clic derecho para cambiarlo)' : isHidden ? 'Oculta en el gráfico' : 'Ocultar en el gráfico'}
@@ -266,7 +277,7 @@ function Tracking({ info: ref }: { info: RefInfo }) {
 function refTitle(ref: RefInfo, current: boolean): string {
   const lines = [current ? `${ref.name} (rama actual)` : ref.name]
   if (ref.upstream) lines.push(`Sigue a ${ref.upstream.replace(/^refs\/remotes\//, '')}`)
-  lines.push(current ? 'Clic: ver de dónde sale · clic derecho: más opciones' : 'Clic: ver de dónde sale · doble clic: checkout · clic derecho: más opciones')
+  lines.push(current ? 'Clic: ir a su commit · clic derecho: más opciones' : 'Clic: ir a su commit · doble clic: checkout · clic derecho: más opciones')
   return lines.join('\n')
 }
 

@@ -4,6 +4,7 @@ import { api } from '../api'
 import { useAppearance } from '../lib/appearance'
 import { COLOR_GROUPS, contrastProblems, exportTheme, importTheme, normalizeHex, type ColorKey } from '../lib/themes'
 import { useDialog } from './Dialog'
+import { intlLocale, t, tn } from '../../../shared/i18n'
 
 /**
  * Panel lateral para cambiar los colores del tema activo. No bloquea la app: los cambios se ven
@@ -34,10 +35,10 @@ export function ThemeEditor({ onClose }: { onClose(): void }) {
 
   const pasteTheme = () =>
     void dialog.show({
-      title: 'Pegar un tema',
-      description: 'Pegá el texto de un tema copiado desde GitOno (con "Copiar el tema").',
-      fields: [{ name: 'json', label: 'Tema', kind: 'textarea', required: true, mono: true }],
-      confirmLabel: 'Usar este tema',
+      title: t('Pegar un tema'),
+      description: t('Pegá el texto de un tema copiado desde GitOno (con "Copiar el tema").'),
+      fields: [{ name: 'json', label: t('Tema'), kind: 'textarea', required: true, mono: true }],
+      confirmLabel: t('Usar este tema'),
       onSubmit: (values) => {
         const result = importTheme(String(values.json))
         if ('error' in result) throw new Error(result.error)
@@ -47,13 +48,13 @@ export function ThemeEditor({ onClose }: { onClose(): void }) {
     })
 
   return (
-    <aside className="theme-editor glass" aria-label={`Colores de ${palette.name}`}>
+    <aside className="theme-editor glass" aria-label={t('Colores de {name}', { name: palette.name })}>
       <header className="theme-editor__header">
         <div>
-          <h2>Colores de {palette.name}</h2>
-          <p>{changed === 0 ? 'Los colores originales del tema.' : `${changed === 1 ? '1 color cambiado' : `${changed} colores cambiados`}.`}</p>
+          <h2>{t('Colores de {name}', { name: palette.name })}</h2>
+          <p>{changed === 0 ? t('Los colores originales del tema.') : tn(changed, '{n} color cambiado.', '{n} colores cambiados.')}</p>
         </div>
-        <button className="btn btn--icon btn--ghost" aria-label="Cerrar" onClick={onClose}>
+        <button className="btn btn--icon btn--ghost" aria-label={t('Cerrar')} onClick={onClose}>
           <X size={15} strokeWidth={1.75} />
         </button>
       </header>
@@ -62,11 +63,11 @@ export function ThemeEditor({ onClose }: { onClose(): void }) {
         <div className="theme-editor__warning" role="status">
           <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
           <div>
-            Algunos textos van a costar leerse:
+            {t('Algunos textos van a costar leerse:')}
             <ul>
               {problems.map((p) => (
                 <li key={p.label}>
-                  {p.label}: {p.ratio.toFixed(1).replace('.', ',')}:1 (mínimo {String(p.min).replace('.', ',')}:1)
+                  {t('{label}: {ratio}:1 (mínimo {min}:1)', { label: p.label, ratio: p.ratio.toLocaleString(intlLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), min: p.min.toLocaleString(intlLocale()) })}
                 </li>
               ))}
             </ul>
@@ -96,16 +97,16 @@ export function ThemeEditor({ onClose }: { onClose(): void }) {
       <footer className="theme-editor__footer">
         <button className="btn btn--sm" disabled={changed === 0} onClick={() => setCustom(palette.id, {})}>
           <RotateCcw size={13} strokeWidth={1.75} aria-hidden />
-          Volver a los originales
+          {t('Volver a los originales')}
         </button>
         <span className="theme-editor__spacer" />
-        <button className="btn btn--sm" onClick={copyTheme} title="Copia el tema como texto, para guardarlo o compartirlo">
+        <button className="btn btn--sm" onClick={copyTheme} title={t('Copia el tema como texto, para guardarlo o compartirlo')}>
           <Copy size={13} strokeWidth={1.75} aria-hidden />
-          {copied ? 'Copiado' : 'Copiar el tema'}
+          {copied ? t('Copiado') : t('Copiar el tema')}
         </button>
         <button className="btn btn--sm" onClick={pasteTheme}>
           <ClipboardPaste size={13} strokeWidth={1.75} aria-hidden />
-          Pegar…
+          {t('Pegar…')}
         </button>
       </footer>
     </aside>
@@ -134,7 +135,7 @@ function ColorRow({
 
   return (
     <div className="color-row">
-      <label className="color-row__swatch" title="Elegir el color">
+      <label className="color-row__swatch" title={t('Elegir el color')}>
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} />
       </label>
       <span className="color-row__label">{label}</span>
@@ -143,7 +144,7 @@ function ColorRow({
         value={text}
         spellCheck={false}
         maxLength={7}
-        aria-label={`${label} en hexadecimal`}
+        aria-label={t('{label} en hexadecimal', { label })}
         onChange={(e) => {
           setText(e.target.value)
           const hex = normalizeHex(e.target.value)
@@ -153,8 +154,8 @@ function ColorRow({
       />
       <button
         className="btn btn--icon btn--ghost btn--sm color-row__reset"
-        aria-label={`Volver al original (${original})`}
-        title={`Volver al original (${original})`}
+        aria-label={t('Volver al original ({original})', { original })}
+        title={t('Volver al original ({original})', { original })}
         disabled={!changed}
         onClick={onReset}
       >

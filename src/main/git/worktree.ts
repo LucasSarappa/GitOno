@@ -6,6 +6,7 @@ import type { FileContent, FileSource, PatchAction, RepoOperation, WorkingArea, 
 import { looksBinary, parseStatus } from './parse'
 import { MAX_FILE_BYTES, readBlob, readFileAtRef } from './repo'
 import { git, GitError, gitText } from './run'
+import { t } from '../../shared/i18n'
 
 export async function workingStatus(root: string): Promise<WorkingTreeStatus> {
   // --no-optional-locks: status no reescribe el índice. Si lo hiciera, la app vería ese cambio
@@ -69,7 +70,7 @@ export function insideRepo(root: string, path: string): string {
   const fullPath = resolve(root, path)
   const fromRoot = relative(resolve(root), fullPath)
   if (!fromRoot || fromRoot.startsWith('..') || isAbsolute(fromRoot)) {
-    throw new GitError(`La ruta "${path}" está fuera del repositorio.`)
+    throw new GitError(t('La ruta "{path}" está fuera del repositorio.', { path }))
   }
   return fullPath
 }
@@ -125,7 +126,7 @@ export async function applyPatch(root: string, patch: string, action: PatchActio
 }
 
 export async function commit(root: string, message: string, amend: boolean): Promise<string> {
-  if (!message.trim()) throw new GitError('El mensaje del commit no puede estar vacío.')
+  if (!message.trim()) throw new GitError(t('El mensaje del commit no puede estar vacío.'))
   // --cleanup=whitespace: se respetan las líneas que empiezan con "#" (ej. "#123 corrige el login").
   const args = ['commit', '--file=-', '--cleanup=whitespace']
   if (amend) args.push('--amend')

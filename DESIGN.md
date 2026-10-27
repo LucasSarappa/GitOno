@@ -136,7 +136,8 @@ Lo que sigue describe **Crema** y **Cacao**, los temas de fábrica: una paleta r
 - **Fondo cacao** (`cocoa-ground`), **Cacao sólido** (`cocoa-solid`) y **Hueso** (`bone-ink`): sus equivalentes en oscuro.
 
 ### Estado de archivos
-- **Verde agregado** (`added`), **Rojo borrado** (`deleted`), **Ámbar modificado** (`modified`) y **Azul renombrado** (`renamed`): insignias de estado (ícono sobre el color), conteos de líneas y fondos de líneas en los bloques. En oscuro se usan versiones más claras (ver `styles.css`).
+- **Verde agregado** (`added`), **Rojo borrado** (`deleted`), **Ámbar modificado** (`modified`) y **Azul renombrado** (`renamed`): íconos de estado (el ícono solo, de ese color, sin fondo, como GitKraken), conteos de líneas y fondos de líneas en los bloques. En oscuro se usan versiones más claras (ver `styles.css`).
+- **"Preparar archivo"** es el único botón lleno de verde: es la acción que suma al commit. Aparece al pasar el mouse por un archivo, como en GitKraken.
 
 ### Carriles del gráfico
 Ocho colores, en orden: caramelo, cielo, menta, frambuesa, violeta, verde azulado, mostaza y pizarra (`lane-*`). Cada uno tiene su versión para oscuro. La fila WIP usa un gris cálido propio.
@@ -228,6 +229,16 @@ Vidrio en capas: el fondo cálido, los paneles translúcidos encima y las ventan
 - **Varias en el mismo commit:** se ve una y un "+N". Al apoyar el mouse se despliegan todas hacia abajo, cada una con su menú y arrastrable.
 - **Rama fantasma:** al pasar el mouse por un commit sin etiquetas (o al elegirlo), su rama más cercana aparece tenue y punteada, como en GitKraken.
 - Una línea punteada del color del carril une cada etiqueta con su nodo.
+
+### Perfil
+- **Botón:** la foto del usuario (26px, redonda) arriba a la derecha de la barra de título; al pasar el mouse, un aro caramelo.
+- **Menú:** la identidad en uso (foto de 40px, nombre, email y una pastilla "En todos los repos" o "Solo en <repo>"), la lista de perfiles (el que está en uso, con fondo de selección y ✓) y "Nuevo perfil…". "Solo acá", editar y borrar aparecen al pasar el mouse por un perfil.
+
+### Paneles ocultos
+- **Pestaña en el borde:** un panel oculto deja una pestaña chica pegada al borde del gráfico donde estaba (vertical a los costados, horizontal arriba o abajo), con ícono y nombre. Va tenue (78 %) hasta que se le pasa el mouse, y entonces se tiñe de caramelo.
+
+### Stashes en el gráfico
+- **Fila del stash:** el nodo es una caja dibujada con el color gris de las filas virtuales, unida con línea punteada a su commit base; el mensaje va en cursiva y en texto secundario, como la fila WIP.
 
 ### Panel de detalle
 - Compacto, como GitKraken:

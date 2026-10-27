@@ -210,13 +210,38 @@ export type FileContent =
   | { kind: 'binary' }
   | { kind: 'too-large'; size: number }
 
+/** Nombre y email con los que Git firma los commits (user.name y user.email). */
+export interface GitIdentity {
+  name: string
+  email: string
+}
+
+/** La identidad global y la propia de un repo (si tiene una, manda sobre la global). */
+export interface IdentityInfo {
+  global: GitIdentity | null
+  local: GitIdentity | null
+}
+
+/** Con qué arranca una ventana. */
+export interface WindowStart {
+  repoPath: string | null
+  /** Solo la primera ventana recupera (y guarda) las pestañas de la última vez. */
+  restoreTabs: boolean
+}
+
 /** API que el preload expone a la interfaz como `window.gitono`. */
 export interface GitOnoApi {
   /** Abre el selector de carpetas. Devuelve null si el usuario cancela. */
   pickRepo(): Promise<RepoInfo | null>
   openRepo(path: string): Promise<RepoInfo>
-  /** Carpeta pasada por línea de comandos al abrir la app, si hubo una. */
-  initialRepoPath(): Promise<string | null>
+  /** Con qué arranca esta ventana: el repo a abrir (línea de comandos o "ventana nueva") y si recupera las pestañas. */
+  windowStart(): Promise<WindowStart>
+  /** Identidad de Git: la global y, con un repo, la propia de ese repo. */
+  readIdentity(root: string | null): Promise<IdentityInfo>
+  /** Cambia la global (root null) o la de un repo; null en un repo vuelve a la global. */
+  writeIdentity(root: string | null, identity: GitIdentity | null): Promise<void>
+  /** Abre otra ventana de la app, vacía o con un repo. */
+  newWindow(repoPath: string | null): Promise<void>
   listRefs(root: string): Promise<RefList>
   /** Trae las novedades de todos los remotos. El progreso llega por `onProgress`. */
   fetchAll(root: string): Promise<void>
@@ -312,6 +337,8 @@ export interface GitOnoApi {
   setAppearance(appearance: NativeAppearance): Promise<void>
   /** Zoom de toda la interfaz (1 = 100 %). */
   setZoom(factor: number): void
+  /** Idioma de los mensajes del proceso principal (errores de Git, diálogos). */
+  setLocale(locale: 'es' | 'en'): Promise<void>
 }
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
@@ -325,7 +352,10 @@ export interface NativeAppearance {
 export const IPC = {
   pickRepo: 'repo:pick',
   openRepo: 'repo:open',
-  initialRepoPath: 'repo:initial-path',
+  windowStart: 'ui:window-start',
+  newWindow: 'ui:new-window',
+  readIdentity: 'git:read-identity',
+  writeIdentity: 'git:write-identity',
   listRefs: 'git:list-refs',
   fetchAll: 'git:fetch-all',
   searchCode: 'git:search-code',
@@ -381,7 +411,8 @@ export const IPC = {
   unwatchRepo: 'repo:unwatch',
   /** Evento del proceso principal hacia la interfaz (no es un pedido). */
   repoChanged: 'repo:changed',
-  progress: 'git:progress'
+  progress: 'git:progress',
+  setLocale: 'ui:set-locale'
 } as const
 
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: string }

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowUp, Code, Columns3, Eye, GripVertical, LayoutDashboard, MoreHorizontal, RotateCcw, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Code, Columns3, Eye, GripVertical, LayoutDashboard, MoreHorizontal, PanelBottomOpen, PanelRightOpen, PanelTopOpen, RotateCcw, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type {
@@ -37,7 +37,7 @@ import { WorkingFileView } from '../components/WorkingFileView'
 import { EMPTY_DRAFT, WorkingTreePanel, type CommitDraft } from '../components/WorkingTreePanel'
 import { COLUMN_LABELS, DEFAULT_COLUMNS, normalizeColumns, type ColumnId, type ColumnsConfig } from '../lib/columns'
 import { shortSha } from '../lib/format'
-import { computeGraph } from '../lib/graph'
+import { computeGraph, withStashRows } from '../lib/graph'
 import { labelsByCommit } from '../lib/refs'
 import { useAppearance } from '../lib/appearance'
 import { setDetailsPrefs, useDetailsPrefs } from '../lib/detailsPrefs'
@@ -63,6 +63,10 @@ import {
 } from '../lib/dock'
 import { loadSetting, saveSetting } from '../lib/settings'
 import type { ActionMenus } from './useRepoActions'
+
+// La pestaña de la izquierda va girada 180°: con el mismo ícono que la derecha, la flecha apunta hacia el gráfico.
+const RAIL_ICONS = { left: PanelRightOpen, right: PanelRightOpen, top: PanelTopOpen, bottom: PanelBottomOpen }
+import { t, tn } from '../../../shared/i18n'
 
 /** Commits que se cargan por tanda al bajar por el historial. */
 const PAGE_SIZE = 1000
@@ -220,17 +224,29 @@ export function HistoryView(props: Props) {
   const wipParent = status?.head ?? null
 
   const commits = page?.commits ?? NO_COMMITS
-  // La fila de cambios sin commitear va arriba de todo, unida al commit actual.
+  const stashBySha = useMemo(() => new Map(stashes.map((s) => [s.sha, s])), [stashes])
+  // La fila de cambios sin commitear va arriba de todo, unida al commit actual; las de los stashes,
+  // entre los commits, unidas al commit sobre el que se guardaron.
   const rows = useMemo((): CommitInfo[] => {
-    if (!hasWip) return commits
+    const withStashes = withStashRows(commits, stashes, (stash) => ({
+      sha: stash.sha,
+      parents: [stash.base],
+      authorName: '',
+      authorEmail: '',
+      authorDate: stash.date,
+      subject: stashBySha.get(stash.sha)?.message ?? ''
+    }))
+    if (!hasWip) return withStashes
     const wipRow = { sha: WIP_SHA, parents: wipParent ? [wipParent] : [], authorName: '', authorEmail: '', authorDate: 0, subject: '' }
-    return [wipRow, ...commits]
-  }, [commits, hasWip, wipParent])
-  const graph = useMemo(() => computeGraph(rows.map((c) => (c.sha === WIP_SHA ? { ...c, virtual: true } : c))), [rows])
+    return [wipRow, ...withStashes]
+  }, [commits, stashes, stashBySha, hasWip, wipParent])
+  const graph = useMemo(
+    () => computeGraph(rows.map((c) => (c.sha === WIP_SHA || stashBySha.has(c.sha) ? { ...c, virtual: true } : c))),
+    [rows, stashBySha]
+  )
   const labels = useMemo(() => labelsByCommit(refs.refs, refs.current, refs.head), [refs])
   const indexBySha = useMemo(() => new Map(rows.map((c, i) => [c.sha, i])), [rows])
   const refByName = useMemo(() => new Map(refs.refs.map((r) => [r.ref, r])), [refs])
-  const stashBySha = useMemo(() => new Map(stashes.map((s) => [s.sha, s])), [stashes])
 
   const requestScroll = (sha: string, align: ScrollRequest['align']) => setScrollRequest({ sha, align, nonce: ++nonce.current })
 
@@ -275,7 +291,7 @@ export function HistoryView(props: Props) {
       setLimit((l) => Math.min(MAX_COMMITS, l + PAGE_SIZE * 5))
     } else {
       setPendingSha(null)
-      onError(filter.hidden.length + filter.solo.length > 0 ? 'Ese commit está en una rama oculta del gráfico.' : 'Ese commit no aparece en el historial de ramas y tags cargado.')
+      onError(filter.hidden.length + filter.solo.length > 0 ? t('Ese commit está en una rama oculta del gráfico.') : t('Ese commit no aparece en el historial de ramas y etiquetas cargado.'))
     }
   }, [pendingSha, page, loading, indexBySha, limit, onError, filter])
 
@@ -421,8 +437,13 @@ export function HistoryView(props: Props) {
     if (ref) selectBranch(ref.ref)
   }
 
-  // Un stash no está en el gráfico: se muestra su detalle sin moverse en la lista.
+  // Si el stash está en el gráfico se va a su fila; si no (su commit base no está cargado), solo se
+  // muestra su detalle.
   const showStash = (sha: string) => {
+    if (indexBySha.has(sha)) {
+      selectCommit(sha, 'center')
+      return
+    }
     setOpen(null)
     setSelectedSha(sha)
   }
@@ -527,11 +548,11 @@ export function HistoryView(props: Props) {
     const dock = layout.docks.find((d) => d.panel === panel)
     const sides: Side[] = ['left', 'right', 'top', 'bottom']
     menu.open(at, tidy([
-      { kind: 'label', label: `Panel de ${PANEL_NAMES[panel].toLowerCase()}` },
+      { kind: 'label', label: t('Panel de {value}', { value: PANEL_NAMES[panel].toLowerCase() }) },
       ...sides.map(
         (side): MenuItem => ({
           kind: 'check',
-          label: `Ponerlo ${SIDE_NAMES[side]}`,
+          label: t('Ponerlo {value}', { value: SIDE_NAMES[side] }),
           checked: dock?.side === side,
           onSelect: () => setLayout((l) => movePanel(l, panel, side, 'inner'))
         })
@@ -540,14 +561,14 @@ export function HistoryView(props: Props) {
       ...(panel === 'details'
         ? ([
             { kind: 'separator' },
-            { kind: 'label', label: 'Qué mostrar' },
-            { kind: 'check', label: 'SHA, padres y ramas', checked: detailsPrefs.facts, onSelect: () => setDetailsPrefs({ facts: !detailsPrefs.facts }) },
-            { kind: 'check', label: 'Mensaje completo (sin "Ver más")', checked: detailsPrefs.fullMessage, onSelect: () => setDetailsPrefs({ fullMessage: !detailsPrefs.fullMessage }) },
-            { kind: 'check', label: 'Archivos en árbol de carpetas', checked: detailsPrefs.files === 'tree', onSelect: () => setDetailsPrefs({ files: detailsPrefs.files === 'tree' ? 'list' : 'tree' }) }
+            { kind: 'label', label: t('Qué mostrar') },
+            { kind: 'check', label: t('SHA, padres y ramas'), checked: detailsPrefs.facts, onSelect: () => setDetailsPrefs({ facts: !detailsPrefs.facts }) },
+            { kind: 'check', label: t('Mensaje completo (sin "Ver más")'), checked: detailsPrefs.fullMessage, onSelect: () => setDetailsPrefs({ fullMessage: !detailsPrefs.fullMessage }) },
+            { kind: 'check', label: t('Archivos en árbol de carpetas'), checked: detailsPrefs.files === 'tree', onSelect: () => setDetailsPrefs({ files: detailsPrefs.files === 'tree' ? 'list' : 'tree' }) }
           ] satisfies MenuItem[])
         : []),
       { kind: 'separator' },
-      { label: `Ocultarlo (${panel === 'refs' ? 'Ctrl+K' : 'Ctrl+J'})`, icon: X, onSelect: () => togglePanel(panel) }
+      { label: t('Ocultarlo ({value})', { value: panel === 'refs' ? 'Ctrl+K' : 'Ctrl+J' }), icon: X, onSelect: () => togglePanel(panel) }
     ]))
   }
 
@@ -556,13 +577,13 @@ export function HistoryView(props: Props) {
     const current = matchingPreset(layout)
     const isOpen = (panel: PanelId) => layout.docks.find((d) => d.panel === panel)?.open ?? false
     menu.open(at, [
-      { kind: 'label', label: 'Disposición' },
+      { kind: 'label', label: t('Disposición') },
       ...PRESETS.map((p): MenuItem => ({ kind: 'check', label: p.label, checked: current === p.id, onSelect: () => setLayout(p.layout) })),
       { kind: 'separator' },
-      { kind: 'check', label: 'Panel de ramas (Ctrl+K)', checked: isOpen('refs'), onSelect: () => togglePanel('refs') },
-      { kind: 'check', label: 'Panel de detalle (Ctrl+J)', checked: isOpen('details'), onSelect: () => togglePanel('details') },
+      { kind: 'check', label: t('Panel de ramas (Ctrl+K)'), checked: isOpen('refs'), onSelect: () => togglePanel('refs') },
+      { kind: 'check', label: t('Panel de detalle (Ctrl+J)'), checked: isOpen('details'), onSelect: () => togglePanel('details') },
       { kind: 'separator' },
-      { label: 'Elegir columnas…', icon: Columns3, onSelect: () => openHeaderMenu(at) }
+      { label: t('Elegir columnas…'), icon: Columns3, onSelect: () => openHeaderMenu(at) }
     ])
   }
 
@@ -570,14 +591,14 @@ export function HistoryView(props: Props) {
     if (!lineageRef || !insight || insight.ref !== lineageRef) return null
     const highlight = new Set<string>([insight.tip, ...insight.ownCommits])
     const markers = new Map<string, LineageMarker>()
-    const base = insight.base?.name ?? 'la rama principal'
+    const base = insight.base?.name ?? t('la rama principal')
     if (insight.forkPoint && !insight.isBase) {
       highlight.add(insight.forkPoint)
-      markers.set(insight.forkPoint, { kind: 'fork', text: `${insight.name} nace acá` })
+      markers.set(insight.forkPoint, { kind: 'fork', text: t('{name} nace acá', { name: insight.name }) })
     }
     if (insight.merge?.kind === 'merge-commit') {
       highlight.add(insight.merge.sha)
-      markers.set(insight.merge.sha, { kind: 'merge', text: `mergeada en ${base}` })
+      markers.set(insight.merge.sha, { kind: 'merge', text: t('fusionada en {base}', { base }) })
     }
     return { highlight, markers }
   }, [lineageRef, insight])
@@ -587,6 +608,11 @@ export function HistoryView(props: Props) {
   const openRowMenu = (sha: string, at: MenuAnchor) => {
     if (sha === WIP_SHA) {
       menu.open(at, menus.wip())
+      return
+    }
+    const stash = stashBySha.get(sha)
+    if (stash) {
+      menu.open(at, menus.stash(stash))
       return
     }
     const commit = rows[indexBySha.get(sha) ?? -1]
@@ -612,13 +638,13 @@ export function HistoryView(props: Props) {
     const toggle = (id: ColumnId) =>
       setColumns((c) => ({ ...c, hidden: c.hidden.includes(id) ? c.hidden.filter((h) => h !== id) : [...c.hidden, id] }))
     const items: MenuItem[] = [
-      { kind: 'label', label: 'Columnas' },
+      { kind: 'label', label: t('Columnas') },
       ...(Object.keys(COLUMN_LABELS) as ColumnId[]).map(
         (id): MenuItem => ({ kind: 'check', label: COLUMN_LABELS[id], checked: !columns.hidden.includes(id), disabled: id === 'message', onSelect: () => toggle(id) })
       ),
       { kind: 'separator' },
       {
-        label: 'Ajustar el gráfico a sus carriles',
+        label: t('Ajustar el gráfico a sus carriles'),
         icon: Columns3,
         disabled: columns.widths.graph === undefined,
         onSelect: () =>
@@ -628,7 +654,7 @@ export function HistoryView(props: Props) {
             return { ...c, widths }
           })
       },
-      { label: 'Restablecer columnas', icon: RotateCcw, onSelect: () => setColumns(DEFAULT_COLUMNS) }
+      { label: t('Restablecer columnas'), icon: RotateCcw, onSelect: () => setColumns(DEFAULT_COLUMNS) }
     ]
     menu.open(at, items)
   }
@@ -642,47 +668,47 @@ export function HistoryView(props: Props) {
   const search = (
     <div className="history-search">
       {filtered && (
-        <span className="filter-chip" title="Hay ramas ocultas o se muestran solo algunas">
+        <span className="filter-chip" title={t('Hay ramas ocultas o se muestran solo algunas')}>
           <Eye size={13} strokeWidth={1.75} aria-hidden />
-          {filter.solo.length > 0 ? `Solo ${filter.solo.length === 1 ? '1 rama' : `${filter.solo.length} ramas`}` : `${filter.hidden.length} ocultas`}
+          {filter.solo.length > 0 ? tn(filter.solo.length, 'Solo {n} rama', 'Solo {n} ramas') : tn(filter.hidden.length, '{n} oculta', '{n} ocultas')}
           <button className="link" onClick={props.onShowAll}>
-            mostrar todas
+            {t('mostrar todas')}
           </button>
         </span>
       )}
-      <label className="field field--search history-search__field" title={`${commits.length.toLocaleString('es-AR')} commits cargados`}>
+      <label className="field field--search history-search__field" title={tn(commits.length, '{n} commit cargado', '{n} commits cargados')}>
         <Search size={14} strokeWidth={1.75} aria-hidden />
         <input
           ref={searchRef}
           type="search"
-          placeholder={codeSearch ? 'Buscar en el código de los commits' : 'Buscar commits (Ctrl+F)'}
+          placeholder={codeSearch ? t('Buscar en el código de los commits') : t('Buscar commits (Ctrl+F)')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onSearchKeyDown}
-          aria-label="Buscar por mensaje, autor o SHA"
+          aria-label={t('Buscar por mensaje, autor o SHA')}
         />
         {matches ? (
           <>
             <span className="history-search__count" aria-live="polite">
-              {matchList.length === 0 ? 'Sin resultados' : `${matchPosition || '–'} de ${matchList.length}`}
+              {matchList.length === 0 ? t('Sin resultados') : t('{pos} de {total}', { pos: matchPosition || '–', total: matchList.length })}
             </span>
-            <button className="btn btn--icon btn--ghost btn--sm" aria-label="Coincidencia anterior" title="Anterior (Shift+Enter)" onClick={() => goToMatch(-1)}>
+            <button className="btn btn--icon btn--ghost btn--sm" aria-label={t('Coincidencia anterior')} title={t('Anterior (Shift+Enter)')} onClick={() => goToMatch(-1)}>
               <ArrowUp size={14} strokeWidth={1.75} />
             </button>
-            <button className="btn btn--icon btn--ghost btn--sm" aria-label="Coincidencia siguiente" title="Siguiente (Enter)" onClick={() => goToMatch(1)}>
+            <button className="btn btn--icon btn--ghost btn--sm" aria-label={t('Coincidencia siguiente')} title={t('Siguiente (Enter)')} onClick={() => goToMatch(1)}>
               <ArrowDown size={14} strokeWidth={1.75} />
             </button>
           </>
         ) : codeSearch && query.trim().length >= 2 ? (
-          <span className="history-search__count">Buscando…</span>
+          <span className="history-search__count">{t('Buscando…')}</span>
         ) : (
-          loading && <span className="history-search__count">Cargando…</span>
+          loading && <span className="history-search__count">{t('Cargando…')}</span>
         )}
         <button
           className={`btn btn--icon btn--ghost btn--sm${codeSearch ? ' btn--pressed' : ''}`}
-          aria-label="Buscar en el código de los commits"
+          aria-label={t('Buscar en el código de los commits')}
           aria-pressed={codeSearch}
-          title={codeSearch ? 'Buscando en el código (los commits que agregan o quitan el texto). Clic para buscar en mensajes, autores y SHA.' : 'Buscar en el código de los commits (los que agregan o quitan el texto)'}
+          title={codeSearch ? t('Buscando en el código (los commits que agregan o quitan el texto). Clic para buscar en mensajes, autores y SHA.') : t('Buscar en el código de los commits (los que agregan o quitan el texto)')}
           onClick={() => setCodeSearch((c) => !c)}
         >
           <Code size={14} strokeWidth={1.75} />
@@ -690,8 +716,8 @@ export function HistoryView(props: Props) {
       </label>
       <button
         className="btn btn--icon btn--ghost"
-        aria-label="Disposición de los paneles"
-        title="Disposición de los paneles"
+        aria-label={t('Disposición de los paneles')}
+        title={t('Disposición de los paneles')}
         onClick={(e) => openLayoutMenu(e.currentTarget.getBoundingClientRect())}
       >
         <LayoutDashboard size={16} strokeWidth={1.75} />
@@ -701,15 +727,15 @@ export function HistoryView(props: Props) {
 
   const panelBar = (panel: PanelId, title: string, extra?: ReactNode) => (
     <div className="panel-bar">
-      <span className="dock-grip" title="Arrastrá para poner el panel en otro lugar" onPointerDown={startDrag(panel)}>
+      <span className="dock-grip" title={t('Arrastrá para poner el panel en otro lugar')} onPointerDown={startDrag(panel)}>
         <GripVertical size={13} strokeWidth={1.75} aria-hidden />
         <span className="panel-bar__title">{title}</span>
       </span>
       {extra}
       <button
         className="btn btn--icon btn--ghost btn--sm"
-        aria-label={`Opciones del panel de ${PANEL_NAMES[panel].toLowerCase()}`}
-        title="Moverlo u ocultarlo"
+        aria-label={t('Opciones del panel de {value}', { value: PANEL_NAMES[panel].toLowerCase() })}
+        title={t('Moverlo u ocultarlo')}
         onClick={(e) => openPanelMenu(panel, e.currentTarget.getBoundingClientRect())}
       >
         <MoreHorizontal size={14} strokeWidth={1.75} />
@@ -728,7 +754,7 @@ export function HistoryView(props: Props) {
         size={dock.size}
         min={SIZE_LIMITS.min}
         max={SIZE_LIMITS.max}
-        label={`Tamaño del panel de ${PANEL_NAMES[panel].toLowerCase()}`}
+        label={t('Tamaño del panel de {value}', { value: PANEL_NAMES[panel].toLowerCase() })}
         style={placed.splitter}
         onChange={(size) => setLayout((l) => resizePanel(l, panel, size))}
         onReset={() => setLayout((l) => resizePanel(l, panel, defaultSize(panel, placed.side)))}
@@ -750,9 +776,9 @@ export function HistoryView(props: Props) {
         style={grid.panels.refs?.panel}
         hidden={!grid.panels.refs}
         data-side={grid.panels.refs?.side}
-        aria-label="Ramas, tags y stashes"
+        aria-label={t('Ramas, etiquetas y guardados')}
       >
-        {panelBar('refs', 'Ramas')}
+        {panelBar('refs', t('Ramas'))}
         <RefsPanel
           refs={refs}
           stashes={stashes}
@@ -772,6 +798,25 @@ export function HistoryView(props: Props) {
       {splitterFor('refs')}
 
       <section ref={centerRef} className="panel glass history__center" style={grid.center}>
+        {/* Cada panel oculto deja una pestaña en su borde para volver a abrirlo con un clic. */}
+        {layout.docks
+          .filter((dock) => !dock.open)
+          .map((dock) => {
+            const Icon = RAIL_ICONS[dock.side]
+            const name = PANEL_NAMES[dock.panel]
+            return (
+              <button
+                key={dock.panel}
+                className="dock-rail"
+                data-side={dock.side}
+                onClick={() => togglePanel(dock.panel)}
+                title={t('Mostrar el panel de {value} ({keys})', { value: name.toLowerCase(), keys: dock.panel === 'refs' ? 'Ctrl+K' : 'Ctrl+J' })}
+              >
+                <Icon size={13} strokeWidth={1.75} aria-hidden />
+                <span>{name}</span>
+              </button>
+            )
+          })}
         {/* Con el panel de detalle oculto, el linaje se muestra arriba del gráfico. */}
         {lineageRef && open === null && !grid.panels.details && (
           <BranchInsightCard
@@ -785,18 +830,18 @@ export function HistoryView(props: Props) {
 
         <div className="history__list" hidden={open !== null}>
           {page === null ? (
-            <EmptyState title="Cargando historial…" />
+            <EmptyState title={t('Cargando historial…')} />
           ) : rows.length === 0 ? (
             filtered ? (
-              <EmptyState title="No hay ramas a la vista">
-                Todas las ramas están ocultas.{' '}
+              <EmptyState title={t('No hay ramas a la vista')}>
+                {t('Todas las ramas están ocultas.')}{' '}
                 <button className="link" onClick={props.onShowAll}>
-                  Mostrar todas
+                  {t('Mostrar todas')}
                 </button>
               </EmptyState>
             ) : (
-              <EmptyState title="Este repositorio todavía no tiene commits">
-                Hacé el primer commit desde la terminal o el editor y va a aparecer acá.
+              <EmptyState title={t('Este repositorio todavía no tiene commits')}>
+                {t('Hacé el primer commit desde la terminal o el editor y va a aparecer acá.')}
               </EmptyState>
             )
           ) : (
@@ -811,6 +856,7 @@ export function HistoryView(props: Props) {
               selectedRef={lineageRef}
               scrollRequest={scrollRequest}
               wip={wip}
+              stashes={stashBySha}
               columns={columns}
               graphAvatars={appearance.graphAvatars}
               onColumnsChange={setColumns}
@@ -832,18 +878,18 @@ export function HistoryView(props: Props) {
             <div className="backbar">
               <button className="btn btn--sm" onClick={() => setOpen(null)}>
                 <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
-                Volver al historial
+                {t('Volver al historial')}
               </button>
               <span className="text-2 small">
-                {stashBySha.has(open.sha) ? 'Stash' : 'Commit'} <code>{shortSha(open.sha)}</code> · Esc para volver
+                {stashBySha.has(open.sha) ? t('Guardado') : t('Commit')} <code>{shortSha(open.sha)}</code> {t('· Esc para volver')}
               </span>
             </div>
             <DiffView
               root={repo.root}
               left={{ kind: 'ref', ref: open.parent }}
               right={{ kind: 'ref', ref: open.sha }}
-              labelA={open.parent ? `padre ${shortSha(open.parent)}` : 'sin padre'}
-              labelB={`${stashBySha.has(open.sha) ? 'stash' : 'commit'} ${shortSha(open.sha)}`}
+              labelA={open.parent ? t('padre {sha}', { sha: shortSha(open.parent) }) : t('sin padre')}
+              labelB={`${stashBySha.has(open.sha) ? t('guardado') : 'commit'} ${shortSha(open.sha)}`}
               change={open.change}
               options={options}
               onOptionsChange={onOptionsChange}
@@ -874,9 +920,9 @@ export function HistoryView(props: Props) {
         style={grid.panels.details?.panel}
         hidden={!grid.panels.details}
         data-side={grid.panels.details?.side}
-        aria-label="Detalle"
+        aria-label={t('Detalle')}
       >
-        {panelBar('details', selectedSha === WIP_SHA ? 'Cambios' : 'Detalle')}
+        {panelBar('details', selectedSha === WIP_SHA ? t('Cambios') : t('Detalle'))}
         {lineageRef && (
           <BranchInsightCard
             name={refByName.get(lineageRef)?.name ?? lineageRef}
@@ -918,7 +964,7 @@ export function HistoryView(props: Props) {
               />
             </>
           ) : (
-            <div className="details details--empty text-2">Elegí un commit para ver su detalle.</div>
+            <div className="details details--empty text-2">{t('Elegí un commit para ver su detalle.')}</div>
           )}
         </div>
       </aside>
@@ -944,7 +990,7 @@ function DockPreview({
   const center = centerRef.current?.getBoundingClientRect()
   if (!grid || !center) return null
   const target = drag.target
-  const name = drag.panel === 'center' ? 'el gráfico' : `el panel de ${PANEL_NAMES[drag.panel].toLowerCase()}`
+  const name = drag.panel === 'center' ? t('el gráfico') : t('el panel de {value}', { value: PANEL_NAMES[drag.panel].toLowerCase() })
   let box: { left: number; top: number; width: number; height: number } | null = null
   if (target) {
     const area = target.placement === 'inner' ? center : grid
@@ -962,11 +1008,11 @@ function DockPreview({
       height: target.side === 'top' || target.side === 'bottom' ? size : area.height
     }
   }
-  const where = target ? (target.placement === 'inner' ? `${SIDE_NAMES[target.side]} del gráfico` : `${SIDE_NAMES[target.side]} de todo`) : null
+  const where = target ? (target.placement === 'inner' ? t('{value} del gráfico', { value: SIDE_NAMES[target.side] }) : t('{value} de todo', { value: SIDE_NAMES[target.side] })) : null
   return (
     <div className="dock-overlay" aria-live="polite">
       {box && <div className="dock-overlay__preview" style={box} />}
-      <div className="dock-overlay__label">{where ? `Soltá para poner ${name} ${where}` : `Arrastrá ${name} hacia un borde · Esc cancela`}</div>
+      <div className="dock-overlay__label">{where ? t('Soltá para poner {name} {where}', { name, where }) : t('Arrastrá {name} hacia un borde · Esc cancela', { name })}</div>
     </div>
   )
 }

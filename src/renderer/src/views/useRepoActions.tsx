@@ -54,6 +54,7 @@ import { webLinks } from '../lib/links'
 import { splitRemoteName } from '../lib/refs'
 import { loadSetting, saveSetting } from '../lib/settings'
 import { UndoStack, type UndoEntry } from '../lib/undo'
+import { t } from '../../../shared/i18n'
 
 export interface Toast {
   id: number
@@ -73,14 +74,14 @@ export const shortRef = (ref: string) => ref.replace(/^refs\/(heads|remotes|tags
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 /** Mensajes de Git (o de git/ops.ts) que piden una respuesta distinta a "mostrar el error". */
-const NOT_MERGED = /no están en otra rama/
+const NOT_MERGED = /no están en otra rama|aren't in any other branch/
 const LOCAL_CHANGES = /would be overwritten|commit your changes or stash them/i
 const REJECTED = /\[rejected\]|non-fast-forward|fetch first|stale info/i
 
 export const PULL_MODES: { mode: PullMode; label: string; detail: string }[] = [
-  { mode: 'ff-or-merge', label: 'Pull (avance rápido si se puede)', detail: 'Si las dos ramas tienen commits nuevos, hace un merge.' },
-  { mode: 'ff-only', label: 'Pull (solo avance rápido)', detail: 'Si no se puede avanzar sin merge, no hace nada.' },
-  { mode: 'rebase', label: 'Pull (rebase)', detail: 'Pone tus commits encima de los del servidor.' }
+  { mode: 'ff-or-merge', label: t('Traer (avance rápido si se puede)'), detail: t('Si las dos ramas tienen commits nuevos, las fusiona.') },
+  { mode: 'ff-only', label: t('Traer (solo avance rápido)'), detail: t('Si no se puede avanzar sin fusionar, no hace nada.') },
+  { mode: 'rebase', label: t('Traer (rebasando)'), detail: t('Pone tus commits encima de los del servidor.') }
 ]
 
 interface Options {
@@ -202,7 +203,7 @@ export function useRepoActions(options: Options) {
     async (branch: string | null) => {
       const now = (await api.listRefs(root)).current
       if (now !== branch) {
-        throw new Error(branch ? `Para deshacer esto, volvé a la rama ${shortRef(branch)}.` : 'Para deshacer esto, el repo tiene que estar donde estaba.')
+        throw new Error(branch ? t('Para deshacer esto, volvé a la rama {name}.', { name: shortRef(branch) }) : t('Para deshacer esto, el repo tiene que estar donde estaba.'))
       }
     },
     [root]
@@ -214,7 +215,7 @@ export function useRepoActions(options: Options) {
       const branch = currentBranch
       const before = refs.head
       const outcome = await task()
-      if (outcome === 'conflicts') return { message: 'Quedaron conflictos. Resolvelos, preparalos y tocá Continuar en el aviso de arriba.' }
+      if (outcome === 'conflicts') return { message: t('Quedaron conflictos. Resolvelos, preparalos y tocá Continuar en el aviso de arriba.') }
       const after = (await api.listRefs(root)).head
       if (!before || !after || before === after) return { message: done }
       return {
@@ -243,14 +244,14 @@ export function useRepoActions(options: Options) {
       const previous = refs.current ?? refs.head
       const doCheckout = async (): Promise<Result> => {
         const branch = await api.checkout(root, target)
-        const message = branch ? `Ahora estás en ${shortRef(branch)}.` : `Ahora estás en el commit ${shortSha(target)} (HEAD desacoplado).`
+        const message = branch ? t('Ahora estás en {name}.', { name: shortRef(branch) }) : t('Ahora estás en el commit {name} (HEAD desacoplado).', { name: shortSha(target) })
         if (!previous) return { message }
         return {
           message,
-          undo: { label: `cambiar a ${label}`, undo: async () => void (await api.checkout(root, previous)), redo: async () => void (await api.checkout(root, target)) }
+          undo: { label: t('cambiar a {label}', { label }), undo: async () => void (await api.checkout(root, previous)), redo: async () => void (await api.checkout(root, target)) }
         }
       }
-      void run(`Cambiando a ${label}…`, async () => {
+      void run(t('Cambiando a {label}…', { label }), async () => {
         try {
           return await doCheckout()
         } catch (error) {
@@ -259,12 +260,12 @@ export function useRepoActions(options: Options) {
           window.setTimeout(() => {
             void withDialog(
               {
-                title: 'Tenés cambios sin commitear',
-                description: `Cambiar a ${label} pisaría algunos de tus cambios. Se pueden guardar en un stash y recuperarlos después con Pop.`,
-                confirmLabel: 'Guardar en un stash y cambiar'
+                title: t('Tenés cambios sin commitear'),
+                description: t('Cambiar a {label} pisaría algunos de tus cambios. Se pueden guardar aparte y recuperarlos después con Recuperar.', { label }),
+                confirmLabel: t('Guardar aparte y cambiar')
               },
               async () => {
-                await api.stash(root, `Antes de cambiar a ${label}`)
+                await api.stash(root, t('Antes de cambiar a {label}', { label }))
                 return doCheckout()
               }
             )
@@ -279,13 +280,13 @@ export function useRepoActions(options: Options) {
     (startPoint: string, startLabel: string) =>
       withDialog(
         {
-          title: 'Crear una rama',
-          description: `Sale de ${startLabel}.`,
+          title: t('Crear una rama'),
+          description: t('Sale de {startLabel}.', { startLabel }),
           fields: [
-            { name: 'name', label: 'Nombre', placeholder: 'feature/nombre', required: true, mono: true },
-            { name: 'checkout', label: 'Cambiar a la rama nueva', kind: 'checkbox', value: true }
+            { name: 'name', label: t('Nombre'), placeholder: t('feature/nombre'), required: true, mono: true },
+            { name: 'checkout', label: t('Cambiar a la rama nueva'), kind: 'checkbox', value: true }
           ],
-          confirmLabel: 'Crear rama'
+          confirmLabel: t('Crear rama')
         },
         async (values) => {
           const switchTo = values.checkout === true
@@ -293,9 +294,9 @@ export function useRepoActions(options: Options) {
           const ref = await api.createBranch(root, String(values.name), startPoint, switchTo)
           const name = shortRef(ref)
           return {
-            message: switchTo ? `Rama ${name} creada. Ahora estás en ella.` : `Rama ${name} creada.`,
+            message: switchTo ? t('Rama {name} creada. Ahora estás en ella.', { name }) : t('Rama {name} creada.', { name }),
             undo: {
-              label: `crear la rama ${name}`,
+              label: t('crear la rama {name}', { name }),
               undo: async () => {
                 if (switchTo && previous) await api.checkout(root, previous)
                 await api.deleteBranch(root, ref, true)
@@ -311,16 +312,16 @@ export function useRepoActions(options: Options) {
   const renameBranch = (ref: RefInfo) =>
     withDialog(
       {
-        title: `Renombrar ${ref.name}`,
-        fields: [{ name: 'name', label: 'Nombre nuevo', value: ref.name, required: true, mono: true }],
-        confirmLabel: 'Renombrar'
+        title: t('Renombrar {name}', { name: ref.name }),
+        fields: [{ name: 'name', label: t('Nombre nuevo'), value: ref.name, required: true, mono: true }],
+        confirmLabel: t('Renombrar')
       },
       async (values) => {
         const renamed = await api.renameBranch(root, ref.ref, String(values.name))
         return {
-          message: `La rama ahora se llama ${shortRef(renamed)}.`,
+          message: t('La rama ahora se llama {name}.', { name: shortRef(renamed) }),
           undo: {
-            label: `renombrar ${ref.name}`,
+            label: t('renombrar {name}', { name: ref.name }),
             undo: async () => void (await api.renameBranch(root, renamed, ref.name)),
             redo: async () => void (await api.renameBranch(root, ref.ref, shortRef(renamed)))
           }
@@ -334,13 +335,13 @@ export function useRepoActions(options: Options) {
     const twin = remoteTwin(ref)
     return withDialog(
       {
-        title: `Borrar la rama ${ref.name}`,
-        description: 'Se puede deshacer con Ctrl+Z mientras la app siga abierta.',
+        title: t('Borrar la rama {name}', { name: ref.name }),
+        description: t('Se puede deshacer con Ctrl+Z mientras la app siga abierta.'),
         fields: [
-          { name: 'force', label: 'Borrarla aunque tenga commits que no están en otra rama', kind: 'checkbox' },
-          ...(twin ? [{ name: 'remote', label: `Borrar también ${twin.name} en el servidor`, kind: 'checkbox' as const, hint: 'Esto no se puede deshacer desde GitOno.' }] : [])
+          { name: 'force', label: t('Borrarla aunque tenga commits que no están en otra rama'), kind: 'checkbox' },
+          ...(twin ? [{ name: 'remote', label: t('Borrar también {name} en el servidor', { name: twin.name }), kind: 'checkbox' as const, hint: t('Esto no se puede deshacer desde GitOno.') }] : [])
         ],
-        confirmLabel: 'Borrar',
+        confirmLabel: t('Borrar'),
         danger: true
       },
       async (values) => {
@@ -348,14 +349,14 @@ export function useRepoActions(options: Options) {
         try {
           sha = await api.deleteBranch(root, ref.ref, values.force === true)
         } catch (error) {
-          if (NOT_MERGED.test(errorText(error))) throw new Error(`${errorText(error)} Marcá la primera opción para borrarla igual.`)
+          if (NOT_MERGED.test(errorText(error))) throw new Error(t('{value} Marcá la primera opción para borrarla igual.', { value: errorText(error) }))
           throw error
         }
         if (twin && values.remote === true) await api.deleteRemoteBranch(root, twin.ref)
         return {
-          message: `Rama ${ref.name} borrada.`,
+          message: t('Rama {name} borrada.', { name: ref.name }),
           undo: {
-            label: `borrar la rama ${ref.name}`,
+            label: t('borrar la rama {name}', { name: ref.name }),
             undo: async () => void (await api.createBranch(root, ref.name, sha, false)),
             redo: async () => void (await api.deleteBranch(root, ref.ref, true))
           }
@@ -367,50 +368,50 @@ export function useRepoActions(options: Options) {
   const deleteRemoteBranch = (ref: RefInfo) =>
     withDialog(
       {
-        title: `Borrar ${ref.name} en el servidor`,
-        description: 'La rama deja de existir en el remoto para todos. Esto no se puede deshacer desde GitOno.',
-        confirmLabel: 'Borrar en el servidor',
+        title: t('Borrar {name} en el servidor', { name: ref.name }),
+        description: t('La rama deja de existir en el remoto para todos. Esto no se puede deshacer desde GitOno.'),
+        confirmLabel: t('Borrar en el servidor'),
         danger: true
       },
       async () => {
         await api.deleteRemoteBranch(root, ref.ref)
-        return { message: `${ref.name} se borró del servidor.` }
+        return { message: t('{name} se borró del servidor.', { name: ref.name }) }
       }
     )
 
   const merge = (ref: string, mode: MergeMode) => {
     const name = shortRef(ref)
-    void run(`Mergeando ${name}…`, () =>
-      movesHead(`mergear ${name}`, `Merge de ${name} en ${currentName} hecho.`, () => api.merge(root, ref, mode))
+    void run(t('Fusionando {name}…', { name }), () =>
+      movesHead(t('fusionar {name}', { name }), t('{name} fusionada en {currentName}.', { name, currentName }), () => api.merge(root, ref, mode))
     )
   }
 
   const rebase = (onto: string, ontoLabel = shortRef(onto)) =>
-    void run(`Rebaseando sobre ${ontoLabel}…`, () =>
-      movesHead(`rebasear sobre ${ontoLabel}`, `${currentName} ahora está encima de ${ontoLabel}.`, () => api.rebase(root, onto))
+    void run(t('Rebasando sobre {ontoLabel}…', { ontoLabel }), () =>
+      movesHead(t('rebasar sobre {ontoLabel}', { ontoLabel }), t('{currentName} ahora está encima de {ontoLabel}.', { currentName, ontoLabel }), () => api.rebase(root, onto))
     )
 
   const fastForward = (ref: string, to: string) => {
     if (ref === currentBranch) {
-      void run(`Avanzando ${shortRef(ref)}…`, () =>
-        movesHead(`avanzar ${shortRef(ref)}`, `${shortRef(ref)} avanzó hasta ${shortRef(to)}.`, () => api.fastForward(root, ref, to))
+      void run(t('Avanzando {name}…', { name: shortRef(ref) }), () =>
+        movesHead(t('avanzar {name}', { name: shortRef(ref) }), t('{name} avanzó hasta {name2}.', { name: shortRef(ref), name2: shortRef(to) }), () => api.fastForward(root, ref, to))
       )
       return
     }
-    void run(`Avanzando ${shortRef(ref)}…`, async () => {
+    void run(t('Avanzando {name}…', { name: shortRef(ref) }), async () => {
       await api.fastForward(root, ref, to)
-      return { message: `${shortRef(ref)} avanzó hasta ${shortRef(to)}.` }
+      return { message: t('{name} avanzó hasta {name2}.', { name: shortRef(ref), name2: shortRef(to) }) }
     })
   }
 
   const cherryPick = (commit: CommitInfo) =>
-    void run('Haciendo cherry-pick…', () =>
-      movesHead(`cherry-pick de ${shortSha(commit.sha)}`, `Commit ${shortSha(commit.sha)} copiado en ${currentName}.`, () => api.cherryPick(root, commit.sha))
+    void run(t('Copiando el commit…'), () =>
+      movesHead(t('copiar el commit {sha}', { sha: shortSha(commit.sha) }), t('Commit {name} copiado en {currentName}.', { name: shortSha(commit.sha), currentName }), () => api.cherryPick(root, commit.sha))
     )
 
   const revert = (commit: CommitInfo) =>
-    void run('Revirtiendo…', () =>
-      movesHead(`revertir ${shortSha(commit.sha)}`, `Se creó un commit que revierte ${shortSha(commit.sha)}.`, () => api.revert(root, commit.sha))
+    void run(t('Revirtiendo…'), () =>
+      movesHead(t('revertir {sha}', { sha: shortSha(commit.sha) }), t('Se creó un commit que revierte {name}.', { name: shortSha(commit.sha) }), () => api.revert(root, commit.sha))
     )
 
   const reset = async (commit: CommitInfo, mode: ResetMode) => {
@@ -418,12 +419,12 @@ export function useRepoActions(options: Options) {
     const before = refs.head
     const task = async (): Promise<Result> => {
       await api.reset(root, commit.sha, mode)
-      const message = `${currentName ?? 'HEAD'} ahora apunta a ${shortSha(commit.sha)}.`
+      const message = t('{value} ahora apunta a {name}.', { value: currentName ?? 'HEAD', name: shortSha(commit.sha) })
       if (!before) return { message }
       return {
         message,
         undo: {
-          label: `resetear a ${shortSha(commit.sha)}`,
+          label: t('restablecer a {name}', { name: shortSha(commit.sha) }),
           undo: async () => {
             await onBranch(branch)
             await api.reset(root, before, mode === 'hard' ? 'keep' : mode)
@@ -436,15 +437,15 @@ export function useRepoActions(options: Options) {
       }
     }
     if (mode !== 'hard') {
-      void run('Reseteando…', task)
+      void run(t('Restableciendo…'), task)
       return
     }
-    const lost = 'Los commits que quedan afuera se pueden recuperar con Ctrl+Z, pero los cambios sin commitear se pierden.'
+    const lost = t('Los commits que quedan afuera se pueden recuperar con Ctrl+Z, pero los cambios sin commitear se pierden.')
     await withDialog(
       {
-        title: `Reset duro a ${shortSha(commit.sha)}`,
-        description: hasChanges ? `Tenés cambios sin commitear. ${lost}` : lost,
-        confirmLabel: hasChanges ? 'Descartar todo y resetear' : 'Resetear',
+        title: t('Restablecer en duro a {name}', { name: shortSha(commit.sha) }),
+        description: hasChanges ? t('Tenés cambios sin commitear. {lost}', { lost }) : lost,
+        confirmLabel: hasChanges ? t('Descartar todo y restablecer') : t('Restablecer'),
         danger: true
       },
       task
@@ -454,24 +455,24 @@ export function useRepoActions(options: Options) {
   const createTagAt = (sha: string, label: string) =>
     withDialog(
       {
-        title: 'Crear un tag',
-        description: `En ${label}.`,
+        title: t('Crear una etiqueta'),
+        description: t('En {label}.', { label }),
         fields: [
-          { name: 'name', label: 'Nombre', placeholder: 'v1.0.0', required: true, mono: true },
-          { name: 'annotated', label: 'Tag anotado (con mensaje)', kind: 'checkbox' },
-          { name: 'message', label: 'Mensaje', kind: 'textarea', showIf: 'annotated' },
-          ...(remotes.length > 0 ? [{ name: 'push', label: `Subirlo a ${remotes.includes('origin') ? 'origin' : remotes[0]}`, kind: 'checkbox' as const }] : [])
+          { name: 'name', label: t('Nombre'), placeholder: 'v1.0.0', required: true, mono: true },
+          { name: 'annotated', label: t('Etiqueta anotada (con mensaje)'), kind: 'checkbox' },
+          { name: 'message', label: t('Mensaje'), kind: 'textarea', showIf: 'annotated' },
+          ...(remotes.length > 0 ? [{ name: 'push', label: t('Subirlo a {value}', { value: remotes.includes('origin') ? 'origin' : remotes[0] }), kind: 'checkbox' as const }] : [])
         ],
-        confirmLabel: 'Crear tag'
+        confirmLabel: t('Crear etiqueta')
       },
       async (values) => {
         const message = values.annotated === true ? String(values.message) || String(values.name) : null
         const ref = await api.createTag(root, String(values.name), sha, message)
         if (values.push === true) await api.pushTag(root, ref, remotes.includes('origin') ? 'origin' : remotes[0])
         return {
-          message: `Tag ${shortRef(ref)} creado.`,
+          message: t('Etiqueta {name} creada.', { name: shortRef(ref) }),
           undo: {
-            label: `crear el tag ${shortRef(ref)}`,
+            label: t('crear la etiqueta {name}', { name: shortRef(ref) }),
             undo: async () => void (await api.deleteTag(root, ref)),
             redo: async () => void (await api.createTag(root, shortRef(ref), sha, message))
           }
@@ -482,18 +483,18 @@ export function useRepoActions(options: Options) {
   const deleteTag = (ref: RefInfo) =>
     withDialog(
       {
-        title: `Borrar el tag ${ref.name}`,
-        fields: remotes.map((remote) => ({ name: `remote:${remote}`, label: `Borrarlo también en ${remote}`, kind: 'checkbox' as const })),
-        confirmLabel: 'Borrar',
+        title: t('Borrar la etiqueta {name}', { name: ref.name }),
+        fields: remotes.map((remote) => ({ name: `remote:${remote}`, label: t('Borrarlo también en {remote}', { remote }), kind: 'checkbox' as const })),
+        confirmLabel: t('Borrar'),
         danger: true
       },
       async (values) => {
         const sha = await api.deleteTag(root, ref.ref)
         for (const remote of remotes) if (values[`remote:${remote}`] === true) await api.deleteRemoteTag(root, ref.ref, remote)
         return {
-          message: `Tag ${ref.name} borrado.`,
+          message: t('Etiqueta {name} borrada.', { name: ref.name }),
           undo: {
-            label: `borrar el tag ${ref.name}`,
+            label: t('borrar la etiqueta {name}', { name: ref.name }),
             undo: async () => void (await api.createTag(root, ref.name, sha, null)),
             redo: async () => void (await api.deleteTag(root, ref.ref))
           }
@@ -502,31 +503,31 @@ export function useRepoActions(options: Options) {
     )
 
   const pushTag = (ref: RefInfo, remote: string) =>
-    void run(`Subiendo ${ref.name}…`, async () => {
+    void run(t('Subiendo {name}…', { name: ref.name }), async () => {
       await api.pushTag(root, ref.ref, remote)
-      return { message: `Tag ${ref.name} subido a ${remote}.` }
+      return { message: t('Etiqueta {name} subida a {remote}.', { name: ref.name, remote }) }
     })
 
   const push = useCallback(
     (ref: string) => {
       const name = shortRef(ref)
-      void run(`Subiendo ${name}…`, async () => {
+      void run(t('Subiendo {name}…', { name }), async () => {
         try {
           await api.push(root, ref, false)
-          return { message: `${name} subida al servidor.` }
+          return { message: t('{name} subida al servidor.', { name }) }
         } catch (error) {
           if (!REJECTED.test(errorText(error))) throw error
           window.setTimeout(() => {
             void withDialog(
               {
-                title: 'El servidor tiene commits que no tenés',
-                description: `Hacé pull para traerlos antes de subir ${name}. Forzar el push reemplaza la rama del servidor por la tuya (con --force-with-lease, que no pisa commits que todavía no viste).`,
-                confirmLabel: 'Forzar el push',
+                title: t('El servidor tiene commits que no tenés'),
+                description: t('Traelos antes de subir {name}. Forzar la subida reemplaza la rama del servidor por la tuya (con --force-with-lease, que no pisa commits que todavía no viste).', { name }),
+                confirmLabel: t('Forzar la subida'),
                 danger: true
               },
               async () => {
                 await api.push(root, ref, true)
-                return { message: `${name} subida al servidor (forzado).` }
+                return { message: t('{name} subida al servidor (forzado).', { name }) }
               }
             )
           })
@@ -539,7 +540,7 @@ export function useRepoActions(options: Options) {
 
   const pull = useCallback(
     (mode: PullMode = pullMode) =>
-      void run('Trayendo novedades…', () => movesHead('pull', 'Rama actualizada con el servidor.', () => api.pull(root, mode))),
+      void run(t('Trayendo novedades…'), () => movesHead('pull', t('Rama actualizada con el servidor.'), () => api.pull(root, mode))),
     [pullMode, root, run, movesHead]
   )
 
@@ -560,21 +561,21 @@ export function useRepoActions(options: Options) {
 
   const fetchAll = useCallback(
     () =>
-      void run('Trayendo novedades…', async () => {
+      void run(t('Trayendo novedades…'), async () => {
         await api.fetchAll(root)
-        return { message: 'Ramas remotas actualizadas.' }
+        return { message: t('Ramas remotas actualizadas.') }
       }),
     [root, run]
   )
 
   const setUpstream = (ref: RefInfo, upstream: string | null) => {
     const previous = ref.upstream ?? null
-    void run('Cambiando la rama que sigue…', async () => {
+    void run(t('Cambiando la rama que sigue…'), async () => {
       await api.setUpstream(root, ref.ref, upstream)
       return {
-        message: upstream ? `${ref.name} ahora sigue a ${shortRef(upstream)}.` : `${ref.name} ya no sigue ninguna rama remota.`,
+        message: upstream ? t('{name} ahora sigue a {name2}.', { name: ref.name, name2: shortRef(upstream) }) : t('{name} ya no sigue ninguna rama remota.', { name: ref.name }),
         undo: {
-          label: `cambiar la rama que sigue ${ref.name}`,
+          label: t('cambiar la rama que sigue {name}', { name: ref.name }),
           undo: () => api.setUpstream(root, ref.ref, previous),
           redo: () => api.setUpstream(root, ref.ref, upstream)
         }
@@ -585,18 +586,18 @@ export function useRepoActions(options: Options) {
   const chooseUpstream = (ref: RefInfo) => {
     const options = refs.refs.filter((r) => r.kind === 'remote').map((r) => ({ value: r.ref, label: r.name }))
     if (options.length === 0) {
-      onError('Este repo no tiene ramas remotas. Hacé push para publicar la rama.')
+      onError(t('Este repo no tiene ramas remotas. Subí la rama para publicarla.'))
       return
     }
     void withDialog(
       {
-        title: `Rama remota que sigue ${ref.name}`,
-        fields: [{ name: 'upstream', label: 'Rama remota', kind: 'select', options, value: ref.upstream ?? options[0].value }],
-        confirmLabel: 'Seguir esta rama'
+        title: t('Rama remota que sigue {name}', { name: ref.name }),
+        fields: [{ name: 'upstream', label: t('Rama remota'), kind: 'select', options, value: ref.upstream ?? options[0].value }],
+        confirmLabel: t('Seguir esta rama')
       },
       async (values) => {
         await api.setUpstream(root, ref.ref, String(values.upstream))
-        return { message: `${ref.name} ahora sigue a ${shortRef(String(values.upstream))}.` }
+        return { message: t('{name} ahora sigue a {name2}.', { name: ref.name, name2: shortRef(String(values.upstream)) }) }
       }
     )
   }
@@ -607,18 +608,18 @@ export function useRepoActions(options: Options) {
     () =>
       withDialog(
         {
-          title: 'Guardar los cambios en un stash',
-          description: 'Los cambios sin commitear (también los archivos nuevos) se guardan aparte y la carpeta queda limpia.',
-          fields: [{ name: 'message', label: 'Mensaje', placeholder: 'Opcional' }],
-          confirmLabel: 'Guardar en stash'
+          title: t('Guardar los cambios aparte'),
+          description: t('Los cambios sin commitear (también los archivos nuevos) se guardan aparte y la carpeta queda limpia.'),
+          fields: [{ name: 'message', label: t('Mensaje'), placeholder: t('Opcional') }],
+          confirmLabel: t('Guardar aparte')
         },
         async (values) => {
           const message = String(values.message)
-          if (!(await api.stash(root, message))) return { message: 'No había cambios para guardar.' }
+          if (!(await api.stash(root, message))) return { message: t('No había cambios para guardar.') }
           return {
-            message: 'Cambios guardados en un stash.',
+            message: t('Cambios guardados aparte.'),
             undo: {
-              label: 'guardar en un stash',
+              label: t('guardar los cambios aparte'),
               undo: async () => void (await api.applyStash(root, 0, true)),
               redo: async () => void (await api.stash(root, message))
             }
@@ -630,10 +631,10 @@ export function useRepoActions(options: Options) {
 
   const applyStash = useCallback(
     (stash: StashInfo, pop: boolean) =>
-      void run(pop ? 'Sacando el stash…' : 'Aplicando el stash…', async () => {
+      void run(pop ? t('Recuperando los cambios guardados…') : t('Aplicando los cambios guardados…'), async () => {
         const outcome = await api.applyStash(root, stash.index, pop)
-        if (outcome === 'conflicts') return { message: 'El stash se aplicó con conflictos. Resolvelos y preparalos; el stash queda guardado.' }
-        return { message: pop ? 'Stash aplicado y borrado.' : 'Stash aplicado (sigue guardado).' }
+        if (outcome === 'conflicts') return { message: t('Los cambios guardados se aplicaron con conflictos. Resolvelos y preparalos; siguen guardados.') }
+        return { message: pop ? t('Cambios recuperados y borrados de los guardados.') : t('Cambios aplicados (siguen guardados).') }
       }),
     [root, run]
   )
@@ -641,17 +642,17 @@ export function useRepoActions(options: Options) {
   const dropStash = (stash: StashInfo) =>
     withDialog(
       {
-        title: 'Borrar el stash',
-        description: `"${stash.message}". Se puede deshacer con Ctrl+Z mientras la app siga abierta.`,
-        confirmLabel: 'Borrar',
+        title: t('Borrar los cambios guardados'),
+        description: t('"{message}". Se puede deshacer con Ctrl+Z mientras la app siga abierta.', { message: stash.message }),
+        confirmLabel: t('Borrar'),
         danger: true
       },
       async () => {
         const sha = await api.dropStash(root, stash.index)
         return {
-          message: 'Stash borrado.',
+          message: t('Cambios guardados borrados.'),
           undo: {
-            label: 'borrar el stash',
+            label: t('borrar los cambios guardados'),
             undo: () => api.restoreStash(root, sha, stash.message),
             redo: async () => void (await api.dropStash(root, 0))
           }
@@ -662,13 +663,13 @@ export function useRepoActions(options: Options) {
   const renameStash = (stash: StashInfo) =>
     withDialog(
       {
-        title: 'Cambiar el mensaje del stash',
-        fields: [{ name: 'message', label: 'Mensaje', value: stash.message, required: true }],
-        confirmLabel: 'Guardar'
+        title: t('Cambiar el mensaje de los cambios guardados'),
+        fields: [{ name: 'message', label: t('Mensaje'), value: stash.message, required: true }],
+        confirmLabel: t('Guardar')
       },
       async (values) => {
         await api.renameStash(root, stash.index, String(values.message))
-        return { message: 'Mensaje del stash cambiado.' }
+        return { message: t('Mensaje cambiado.') }
       }
     )
 
@@ -676,24 +677,24 @@ export function useRepoActions(options: Options) {
   const discardAll = () =>
     withDialog(
       {
-        title: 'Descartar todos los cambios',
-        description: 'Se descartan los cambios preparados, los sin preparar y los archivos nuevos. Se puede deshacer con Ctrl+Z mientras la app siga abierta.',
-        confirmLabel: 'Descartar todo',
+        title: t('Descartar todos los cambios'),
+        description: t('Se descartan los cambios preparados, los sin preparar y los archivos nuevos. Se puede deshacer con Ctrl+Z mientras la app siga abierta.'),
+        confirmLabel: t('Descartar todo'),
         danger: true
       },
       async () => {
-        await api.stash(root, 'Cambios descartados desde GitOno')
+        await api.stash(root, t('Cambios descartados desde GitOno'))
         const sha = await api.dropStash(root, 0)
         return {
-          message: 'Cambios descartados.',
+          message: t('Cambios descartados.'),
           undo: {
-            label: 'descartar los cambios',
+            label: t('descartar los cambios'),
             undo: async () => {
-              await api.restoreStash(root, sha, 'Cambios descartados desde GitOno')
+              await api.restoreStash(root, sha, t('Cambios descartados desde GitOno'))
               await api.applyStash(root, 0, true)
             },
             redo: async () => {
-              await api.stash(root, 'Cambios descartados desde GitOno')
+              await api.stash(root, t('Cambios descartados desde GitOno'))
               await api.dropStash(root, 0)
             }
           }
@@ -704,22 +705,22 @@ export function useRepoActions(options: Options) {
   // ---------- Operación a medio hacer ----------
 
   const continueOperation = () =>
-    void run('Continuando…', async () => {
+    void run(t('Continuando…'), async () => {
       const outcome = await api.continueOperation(root)
-      return { message: outcome === 'conflicts' ? 'Aparecieron más conflictos: resolvelos y volvé a continuar.' : 'Listo, la operación terminó.' }
+      return { message: outcome === 'conflicts' ? t('Aparecieron más conflictos: resolvelos y volvé a continuar.') : t('Listo, la operación terminó.') }
     })
 
   const abortOperation = () =>
     withDialog(
       {
-        title: 'Abortar la operación',
-        description: 'El repo vuelve a como estaba antes de empezar. Se pierde lo que hayas resuelto de los conflictos.',
-        confirmLabel: 'Abortar',
+        title: t('Abortar la operación'),
+        description: t('El repo vuelve a como estaba antes de empezar. Se pierde lo que hayas resuelto de los conflictos.'),
+        confirmLabel: t('Abortar'),
         danger: true
       },
       async () => {
         await api.abortOperation(root)
-        return { message: 'Operación abortada.' }
+        return { message: t('Operación abortada.') }
       }
     )
 
@@ -728,20 +729,20 @@ export function useRepoActions(options: Options) {
   const undo = useCallback(() => {
     const entry = stack.current.nextUndo
     if (!entry) return
-    void run(`Deshaciendo: ${entry.label}…`, async () => {
+    void run(t('Deshaciendo: {label}…', { label: entry.label }), async () => {
       await stack.current.undo()
       setStackVersion((v) => v + 1)
-      return { message: `Deshecho: ${entry.label}.` }
+      return { message: t('Deshecho: {label}.', { label: entry.label }) }
     })
   }, [run])
 
   const redo = useCallback(() => {
     const entry = stack.current.nextRedo
     if (!entry) return
-    void run(`Rehaciendo: ${entry.label}…`, async () => {
+    void run(t('Rehaciendo: {label}…', { label: entry.label }), async () => {
       await stack.current.redo()
       setStackVersion((v) => v + 1)
-      return { message: `Rehecho: ${entry.label}.` }
+      return { message: t('Rehecho: {label}.', { label: entry.label }) }
     })
   }, [run])
 
@@ -769,7 +770,7 @@ export function useRepoActions(options: Options) {
       if (!before) return
       const branch = currentBranch
       stack.current.push({
-        label: 'el commit',
+        label: t('el commit'),
         undo: async () => {
           await onBranch(branch)
           await api.reset(root, before, 'soft')
@@ -797,7 +798,7 @@ export function useRepoActions(options: Options) {
 
   const copy = (text: string, what: string) =>
     void api.copyText(text).then(
-      () => setToast({ id: Date.now(), message: `${what} copiado.`, undoable: false }),
+      () => setToast({ id: Date.now(), message: t('{what} copiado.', { what }), undoable: false }),
       (e: Error) => onError(e.message)
     )
   const openLink = (url: string) => void api.openExternal(url).catch((e: Error) => onError(e.message))
@@ -808,87 +809,87 @@ export function useRepoActions(options: Options) {
 
   const graphItems = (ref: RefInfo): MenuItem[] => [
     hidden.has(ref.ref)
-      ? { label: 'Volver a mostrar en el gráfico', icon: Eye, onSelect: () => toggleHidden(ref.ref) }
-      : { label: 'Ocultar en el gráfico', icon: EyeOff, onSelect: () => toggleHidden(ref.ref) },
+      ? { label: t('Volver a mostrar en el gráfico'), icon: Eye, onSelect: () => toggleHidden(ref.ref) }
+      : { label: t('Ocultar en el gráfico'), icon: EyeOff, onSelect: () => toggleHidden(ref.ref) },
     solo.has(ref.ref)
-      ? { label: 'Dejar de mostrar solo esta', icon: Focus, onSelect: () => toggleSolo(ref.ref) }
-      : { label: filter.solo.length > 0 ? 'Sumar a las que se muestran solas' : 'Mostrar solo esta rama', icon: Focus, onSelect: () => toggleSolo(ref.ref) },
-    ...(filtered ? [{ label: 'Mostrar todas las ramas', icon: Eye, onSelect: showAll } as MenuItem] : [])
+      ? { label: t('Dejar de mostrar solo esta'), icon: Focus, onSelect: () => toggleSolo(ref.ref) }
+      : { label: filter.solo.length > 0 ? t('Sumar a las que se muestran solas') : t('Mostrar solo esta rama'), icon: Focus, onSelect: () => toggleSolo(ref.ref) },
+    ...(filtered ? [{ label: t('Mostrar todas las ramas'), icon: Eye, onSelect: showAll } as MenuItem] : [])
   ]
 
   const integrationItems = (ref: RefInfo): MenuEntry[] => {
     if (!currentBranch || ref.ref === currentBranch) return []
     return [
-      { label: `Mergear ${ref.name} en ${currentName}`, icon: GitMerge, onSelect: () => merge(ref.ref, 'default') },
+      { label: t('Fusionar {name} en {currentName}', { name: ref.name, currentName }), icon: GitMerge, onSelect: () => merge(ref.ref, 'default') },
       {
         kind: 'submenu',
-        label: 'Más formas de mergear',
+        label: t('Más formas de fusionar'),
         icon: GitMerge,
         items: [
-          { label: 'Siempre con commit de merge (--no-ff)', onSelect: () => merge(ref.ref, 'no-ff') },
-          { label: 'Solo si es avance rápido (--ff-only)', onSelect: () => merge(ref.ref, 'ff-only') }
+          { label: t('Siempre con commit de fusión (--no-ff)'), onSelect: () => merge(ref.ref, 'no-ff') },
+          { label: t('Solo si es avance rápido (--ff-only)'), onSelect: () => merge(ref.ref, 'ff-only') }
         ]
       },
-      { label: `Rebasear ${currentName} sobre ${ref.name}`, icon: GitCommitHorizontal, onSelect: () => rebase(ref.ref) }
+      { label: t('Rebasar {currentName} sobre {name}', { currentName, name: ref.name }), icon: GitCommitHorizontal, onSelect: () => rebase(ref.ref) }
     ]
   }
 
   const refMenu = (ref: RefInfo): MenuItem[] => {
     const isCurrent = ref.ref === currentBranch
-    const kindLabel = { local: 'Rama', remote: 'Rama remota', tag: 'Tag' }[ref.kind]
-    const items: MenuEntry[] = [{ kind: 'label', label: `${kindLabel} ${ref.name}${isCurrent ? ' (actual)' : ''}` }]
+    const kindLabel = { local: t('Rama'), remote: t('Rama remota'), tag: t('Etiqueta') }[ref.kind]
+    const items: MenuEntry[] = [{ kind: 'label', label: `${kindLabel} ${ref.name}${isCurrent ? t(' (actual)') : ''}` }]
 
     if (ref.kind === 'local') {
       const upstreamName = ref.upstream ? shortRef(ref.upstream) : null
       const upstreamBranch = upstreamName ? splitRemoteName(upstreamName) : null
       items.push(
-        !isCurrent && { label: `Checkout de ${ref.name}`, icon: LogIn, hint: 'Doble clic', onSelect: () => checkout(ref.ref) },
-        isCurrent && { label: 'Pull', icon: ArrowDownToLine, onSelect: () => pull() },
-        { label: upstreamName ? `Push a ${upstreamName}` : `Publicar ${ref.name} (push)`, icon: ArrowUpFromLine, disabled: remotes.length === 0, onSelect: () => push(ref.ref) },
+        !isCurrent && { label: t('Cambiar a {name}', { name: ref.name }), icon: LogIn, hint: t('Doble clic'), onSelect: () => checkout(ref.ref) },
+        isCurrent && { label: t('Traer'), icon: ArrowDownToLine, onSelect: () => pull() },
+        { label: upstreamName ? t('Subir a {upstreamName}', { upstreamName }) : t('Publicar {name} (subir)', { name: ref.name }), icon: ArrowUpFromLine, disabled: remotes.length === 0, onSelect: () => push(ref.ref) },
         !isCurrent &&
           ref.upstream !== undefined &&
           (ref.behind ?? 0) > 0 &&
-          (ref.ahead ?? 0) === 0 && { label: `Avanzar ${ref.name} hasta ${upstreamName}`, icon: FastForward, onSelect: () => fastForward(ref.ref, ref.upstream!) },
+          (ref.ahead ?? 0) === 0 && { label: t('Avanzar {name} hasta {upstreamName}', { name: ref.name, upstreamName }), icon: FastForward, onSelect: () => fastForward(ref.ref, ref.upstream!) },
         separator,
         ...integrationItems(ref),
         separator,
-        { label: 'Crear una rama acá…', icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
-        { label: 'Crear un tag acá…', icon: Tag, onSelect: () => void createTagAt(ref.target, ref.name) },
+        { label: t('Crear una rama acá…'), icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
+        { label: t('Crear una etiqueta acá…'), icon: Tag, onSelect: () => void createTagAt(ref.target, ref.name) },
         separator,
-        currentBranch && !isCurrent && { label: `Comparar con ${currentName}`, icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
-        { label: 'Ver de dónde sale', icon: Crosshair, onSelect: () => onShowBranch(ref.ref) },
+        currentBranch && !isCurrent && { label: t('Comparar con {currentName}', { currentName }), icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
+        { label: t('Ver de dónde sale'), icon: Crosshair, onSelect: () => onShowBranch(ref.ref) },
         ...graphItems(ref),
         separator,
         {
           kind: 'submenu',
-          label: 'Rama remota que sigue',
+          label: t('Rama remota que sigue'),
           icon: Link,
           disabled: remotes.length === 0,
           items: tidy([
             ...refs.refs
               .filter((r) => r.kind === 'remote' && splitRemoteName(r.name).branch === ref.name)
               .map((r): MenuItem => ({ kind: 'check', label: r.name, checked: r.ref === ref.upstream, onSelect: () => setUpstream(ref, r.ref) })),
-            { label: 'Elegir otra…', onSelect: () => chooseUpstream(ref) },
-            ref.upstream ? { label: `Dejar de seguir ${upstreamName}`, onSelect: () => setUpstream(ref, null) } : false
+            { label: t('Elegir otra…'), onSelect: () => chooseUpstream(ref) },
+            ref.upstream ? { label: t('Dejar de seguir {upstreamName}', { upstreamName }), onSelect: () => setUpstream(ref, null) } : false
           ])
         },
-        links && upstreamBranch && { label: `Abrir en ${links.name}`, icon: ExternalLink, onSelect: () => openLink(links.branch(upstreamBranch.branch)) },
+        links && upstreamBranch && { label: t('Abrir en {name}', { name: links.name }), icon: ExternalLink, onSelect: () => openLink(links.branch(upstreamBranch.branch)) },
         links &&
-          upstreamBranch && { label: `Crear un ${links.requestName}`, icon: GitPullRequestCreateArrow, onSelect: () => openLink(links.newRequest(upstreamBranch.branch)) },
-        { label: 'Copiar el nombre', icon: Copy, onSelect: () => copy(ref.name, 'Nombre') },
-        { label: 'Copiar el SHA', icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
+          upstreamBranch && { label: t('Crear un {requestName}', { requestName: links.requestName }), icon: GitPullRequestCreateArrow, onSelect: () => openLink(links.newRequest(upstreamBranch.branch)) },
+        { label: t('Copiar el nombre'), icon: Copy, onSelect: () => copy(ref.name, t('Nombre')) },
+        { label: t('Copiar el SHA'), icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
         separator,
-        { label: `Renombrar ${ref.name}…`, icon: Pencil, onSelect: () => void renameBranch(ref) },
-        { label: isCurrent ? 'No se puede borrar la rama actual' : `Borrar ${ref.name}…`, icon: Trash, danger: true, disabled: isCurrent, onSelect: () => void deleteBranch(ref) }
+        { label: t('Renombrar {name}…', { name: ref.name }), icon: Pencil, onSelect: () => void renameBranch(ref) },
+        { label: isCurrent ? t('No se puede borrar la rama actual') : t('Borrar {name}…', { name: ref.name }), icon: Trash, danger: true, disabled: isCurrent, onSelect: () => void deleteBranch(ref) }
       )
     } else if (ref.kind === 'remote') {
       const { branch } = splitRemoteName(ref.name)
       const local = refs.refs.find((r) => r.kind === 'local' && r.name === branch)
       items.push(
         local?.ref !== currentBranch && {
-          label: local ? `Checkout de ${local.name}` : `Checkout (crea la rama local ${branch})`,
+          label: local ? t('Cambiar a {name}', { name: local.name }) : t('Cambiar a esta rama (crea la rama local {branch})', { branch }),
           icon: LogIn,
-          hint: 'Doble clic',
+          hint: t('Doble clic'),
           onSelect: () => checkout(ref.ref, branch)
         },
         local &&
@@ -896,40 +897,40 @@ export function useRepoActions(options: Options) {
           (local.behind ?? 0) > 0 &&
           (local.ahead ?? 0) === 0 &&
           (local.ref === currentBranch
-            ? { label: `Pull: avanzar ${local.name} hasta ${ref.name}`, icon: ArrowDownToLine, onSelect: () => pull('ff-only') }
-            : { label: `Avanzar ${local.name} hasta ${ref.name}`, icon: FastForward, onSelect: () => fastForward(local.ref, ref.ref) }),
+            ? { label: t('Traer: avanzar {name} hasta {name2}', { name: local.name, name2: ref.name }), icon: ArrowDownToLine, onSelect: () => pull('ff-only') }
+            : { label: t('Avanzar {name} hasta {name2}', { name: local.name, name2: ref.name }), icon: FastForward, onSelect: () => fastForward(local.ref, ref.ref) }),
         separator,
         ...integrationItems(ref),
         separator,
-        { label: 'Crear una rama acá…', icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
-        { label: 'Crear un tag acá…', icon: Tag, onSelect: () => void createTagAt(ref.target, ref.name) },
+        { label: t('Crear una rama acá…'), icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
+        { label: t('Crear una etiqueta acá…'), icon: Tag, onSelect: () => void createTagAt(ref.target, ref.name) },
         separator,
-        currentBranch && { label: `Comparar con ${currentName}`, icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
-        { label: 'Ver de dónde sale', icon: Crosshair, onSelect: () => onShowBranch(ref.ref) },
+        currentBranch && { label: t('Comparar con {currentName}', { currentName }), icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
+        { label: t('Ver de dónde sale'), icon: Crosshair, onSelect: () => onShowBranch(ref.ref) },
         ...graphItems(ref),
         separator,
-        links && { label: `Abrir en ${links.name}`, icon: ExternalLink, onSelect: () => openLink(links.branch(branch)) },
-        links && { label: `Crear un ${links.requestName}`, icon: GitPullRequestCreateArrow, onSelect: () => openLink(links.newRequest(branch)) },
-        { label: 'Copiar el nombre', icon: Copy, onSelect: () => copy(ref.name, 'Nombre') },
-        { label: 'Copiar el SHA', icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
+        links && { label: t('Abrir en {name}', { name: links.name }), icon: ExternalLink, onSelect: () => openLink(links.branch(branch)) },
+        links && { label: t('Crear un {requestName}', { requestName: links.requestName }), icon: GitPullRequestCreateArrow, onSelect: () => openLink(links.newRequest(branch)) },
+        { label: t('Copiar el nombre'), icon: Copy, onSelect: () => copy(ref.name, t('Nombre')) },
+        { label: t('Copiar el SHA'), icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
         separator,
-        { label: `Borrar ${ref.name} en el servidor…`, icon: Trash, danger: true, onSelect: () => void deleteRemoteBranch(ref) }
+        { label: t('Borrar {name} en el servidor…', { name: ref.name }), icon: Trash, danger: true, onSelect: () => void deleteRemoteBranch(ref) }
       )
     } else {
       items.push(
-        { label: 'Checkout del commit (HEAD desacoplado)', icon: LogIn, onSelect: () => checkout(ref.ref) },
+        { label: t('Cambiar al commit (HEAD desacoplado)'), icon: LogIn, onSelect: () => checkout(ref.ref) },
         separator,
         ...integrationItems(ref),
         separator,
-        { label: 'Crear una rama acá…', icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
-        currentBranch && { label: `Comparar con ${currentName}`, icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
+        { label: t('Crear una rama acá…'), icon: GitBranchPlus, onSelect: () => void createBranchAt(ref.target, ref.name) },
+        currentBranch && { label: t('Comparar con {currentName}', { currentName }), icon: GitCompareArrows, onSelect: () => onCompare(currentBranch, ref.ref) },
         ...graphItems(ref),
         separator,
-        ...remotes.map((remote): MenuItem => ({ label: `Subir el tag a ${remote}`, icon: Upload, onSelect: () => pushTag(ref, remote) })),
-        { label: 'Copiar el nombre', icon: Copy, onSelect: () => copy(ref.name, 'Nombre') },
-        { label: 'Copiar el SHA', icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
+        ...remotes.map((remote): MenuItem => ({ label: t('Subir la etiqueta a {remote}', { remote }), icon: Upload, onSelect: () => pushTag(ref, remote) })),
+        { label: t('Copiar el nombre'), icon: Copy, onSelect: () => copy(ref.name, t('Nombre')) },
+        { label: t('Copiar el SHA'), icon: Copy, onSelect: () => copy(ref.target, 'SHA') },
         separator,
-        { label: `Borrar el tag ${ref.name}…`, icon: Trash, danger: true, onSelect: () => void deleteTag(ref) }
+        { label: t('Borrar la etiqueta {name}…', { name: ref.name }), icon: Trash, danger: true, onSelect: () => void deleteTag(ref) }
       )
     }
     return tidy(items)
@@ -939,52 +940,52 @@ export function useRepoActions(options: Options) {
     const isHead = commit.sha === refs.head
     const short = shortSha(commit.sha)
     return tidy([
-      { kind: 'label', label: `Commit ${short}` },
-      !isHead && { label: 'Checkout de este commit (HEAD desacoplado)', icon: LogIn, onSelect: () => checkout(commit.sha, short) },
-      { label: 'Crear una rama acá…', icon: GitBranchPlus, onSelect: () => void createBranchAt(commit.sha, `el commit ${short}`) },
-      { label: 'Crear un tag acá…', icon: Tag, onSelect: () => void createTagAt(commit.sha, `el commit ${short}`) },
+      { kind: 'label', label: t('Commit {short}', { short }) },
+      !isHead && { label: t('Cambiar a este commit (HEAD desacoplado)'), icon: LogIn, onSelect: () => checkout(commit.sha, short) },
+      { label: t('Crear una rama acá…'), icon: GitBranchPlus, onSelect: () => void createBranchAt(commit.sha, t('el commit {short}', { short })) },
+      { label: t('Crear una etiqueta acá…'), icon: Tag, onSelect: () => void createTagAt(commit.sha, t('el commit {short}', { short })) },
       separator,
-      currentBranch && !isHead && { label: `Cherry-pick en ${currentName}`, icon: Cherry, onSelect: () => cherryPick(commit) },
-      refs.head && { label: 'Revertir este commit', icon: RotateCcw, onSelect: () => revert(commit) },
+      currentBranch && !isHead && { label: t('Copiar el commit en {currentName} (cherry-pick)', { currentName }), icon: Cherry, onSelect: () => cherryPick(commit) },
+      refs.head && { label: t('Revertir este commit'), icon: RotateCcw, onSelect: () => revert(commit) },
       refs.head &&
         !isHead && {
           kind: 'submenu',
-          label: `Resetear ${currentName ?? 'HEAD'} a este commit`,
+          label: t('Restablecer {value} a este commit', { value: currentName ?? 'HEAD' }),
           icon: ListRestart,
           items: [
-            { label: 'Suave: los cambios quedan preparados', onSelect: () => void reset(commit, 'soft') },
-            { label: 'Mixto: los cambios quedan sin preparar', onSelect: () => void reset(commit, 'mixed') },
-            { label: 'Duro: descarta los cambios…', danger: true, onSelect: () => void reset(commit, 'hard') }
+            { label: t('Suave: los cambios quedan preparados'), onSelect: () => void reset(commit, 'soft') },
+            { label: t('Mixto: los cambios quedan sin preparar'), onSelect: () => void reset(commit, 'mixed') },
+            { label: t('Duro: descarta los cambios…'), danger: true, onSelect: () => void reset(commit, 'hard') }
           ]
         },
-      currentBranch && !isHead && { label: `Rebasear ${currentName} sobre este commit`, icon: GitCommitHorizontal, onSelect: () => rebase(commit.sha, short) },
+      currentBranch && !isHead && { label: t('Rebasar {currentName} sobre este commit', { currentName }), icon: GitCommitHorizontal, onSelect: () => rebase(commit.sha, short) },
       separator,
-      { label: 'Guardar como parche…', icon: FileDown, onSelect: () => void api.savePatch(root, commit.sha).catch((e: Error) => onError(e.message)) },
-      links && { label: `Abrir en ${links.name}`, icon: ExternalLink, onSelect: () => openLink(links.commit(commit.sha)) },
-      links && { label: 'Copiar el enlace', icon: Link, onSelect: () => copy(links.commit(commit.sha), 'Enlace') },
-      { label: 'Copiar el SHA', icon: Copy, onSelect: () => copy(commit.sha, 'SHA') },
-      { label: 'Copiar el mensaje', icon: Copy, onSelect: () => copy(commit.subject, 'Mensaje') }
+      { label: t('Guardar como parche…'), icon: FileDown, onSelect: () => void api.savePatch(root, commit.sha).catch((e: Error) => onError(e.message)) },
+      links && { label: t('Abrir en {name}', { name: links.name }), icon: ExternalLink, onSelect: () => openLink(links.commit(commit.sha)) },
+      links && { label: t('Copiar el enlace'), icon: Link, onSelect: () => copy(links.commit(commit.sha), t('Enlace')) },
+      { label: t('Copiar el SHA'), icon: Copy, onSelect: () => copy(commit.sha, 'SHA') },
+      { label: t('Copiar el mensaje'), icon: Copy, onSelect: () => copy(commit.subject, t('Mensaje')) }
     ])
   }
 
   const wipMenu = (): MenuItem[] =>
     tidy([
-      { kind: 'label', label: 'Cambios sin commitear' },
-      { label: 'Guardar en un stash…', icon: Archive, onSelect: () => void stashChanges() },
-      refs.head && { label: 'Crear una rama con estos cambios…', icon: GitBranchPlus, onSelect: () => void createBranchAt(refs.head!, currentName ?? 'HEAD') },
+      { kind: 'label', label: t('Cambios sin commitear') },
+      { label: t('Guardar aparte…'), icon: Archive, onSelect: () => void stashChanges() },
+      refs.head && { label: t('Crear una rama con estos cambios…'), icon: GitBranchPlus, onSelect: () => void createBranchAt(refs.head!, currentName ?? 'HEAD') },
       separator,
-      { label: 'Descartar todos los cambios…', icon: Trash, danger: true, onSelect: () => void discardAll() }
+      { label: t('Descartar todos los cambios…'), icon: Trash, danger: true, onSelect: () => void discardAll() }
     ])
 
   const stashMenu = (stash: StashInfo): MenuItem[] =>
     tidy([
       { kind: 'label', label: `stash@{${stash.index}}` },
-      { label: 'Aplicar (queda guardado)', icon: ArchiveRestore, onSelect: () => applyStash(stash, false) },
-      { label: 'Sacar (aplicar y borrar)', icon: PackageOpen, onSelect: () => applyStash(stash, true) },
-      { label: 'Ver sus cambios', icon: Eye, onSelect: () => onShowCommit(stash.sha) },
+      { label: t('Aplicar (queda guardado)'), icon: ArchiveRestore, onSelect: () => applyStash(stash, false) },
+      { label: t('Recuperar (aplicar y borrar)'), icon: PackageOpen, onSelect: () => applyStash(stash, true) },
+      { label: t('Ver sus cambios'), icon: Eye, onSelect: () => onShowCommit(stash.sha) },
       separator,
-      { label: 'Cambiar el mensaje…', icon: Pencil, onSelect: () => void renameStash(stash) },
-      { label: 'Borrar…', icon: Trash, danger: true, onSelect: () => void dropStash(stash) }
+      { label: t('Cambiar el mensaje…'), icon: Pencil, onSelect: () => void renameStash(stash) },
+      { label: t('Borrar…'), icon: Trash, danger: true, onSelect: () => void dropStash(stash) }
     ])
 
   /** Una rama arrastrada sobre otra, como en GitKraken. */
@@ -995,33 +996,33 @@ export function useRepoActions(options: Options) {
       const targetIsCurrent = target.ref === currentBranch
       items.push(
         targetIsCurrent
-          ? { label: `Mergear ${source.name} en ${target.name}`, icon: GitMerge, onSelect: () => merge(source.ref, 'default') }
+          ? { label: t('Fusionar {name} en {name2}', { name: source.name, name2: target.name }), icon: GitMerge, onSelect: () => merge(source.ref, 'default') }
           : {
-              label: `Checkout de ${target.name} y mergear ${source.name}`,
+              label: t('Cambiar a {name} y fusionar {name2}', { name: target.name, name2: source.name }),
               icon: GitMerge,
               onSelect: () =>
-                void run(`Mergeando ${source.name} en ${target.name}…`, async () => {
+                void run(t('Fusionando {name} en {name2}…', { name: source.name, name2: target.name }), async () => {
                   await api.checkout(root, target.ref)
                   const outcome = await api.merge(root, source.ref, 'default')
-                  return { message: outcome === 'conflicts' ? 'Quedaron conflictos. Resolvelos y tocá Continuar.' : `Merge de ${source.name} en ${target.name} hecho.` }
+                  return { message: outcome === 'conflicts' ? t('Quedaron conflictos. Resolvelos y tocá Continuar.') : t('{name} fusionada en {name2}.', { name: source.name, name2: target.name }) }
                 })
             },
         source.ref === currentBranch
-          ? { label: `Rebasear ${source.name} sobre ${target.name}`, icon: GitCommitHorizontal, onSelect: () => rebase(target.ref) }
+          ? { label: t('Rebasar {name} sobre {name2}', { name: source.name, name2: target.name }), icon: GitCommitHorizontal, onSelect: () => rebase(target.ref) }
           : source.kind === 'local' && {
-              label: `Checkout de ${source.name} y rebasear sobre ${target.name}`,
+              label: t('Cambiar a {name} y rebasarla sobre {name2}', { name: source.name, name2: target.name }),
               icon: GitCommitHorizontal,
               onSelect: () =>
-                void run(`Rebaseando ${source.name}…`, async () => {
+                void run(t('Rebasando {name}…', { name: source.name }), async () => {
                   await api.checkout(root, source.ref)
                   const outcome = await api.rebase(root, target.ref)
-                  return { message: outcome === 'conflicts' ? 'Quedaron conflictos. Resolvelos y tocá Continuar.' : `${source.name} ahora está encima de ${target.name}.` }
+                  return { message: outcome === 'conflicts' ? t('Quedaron conflictos. Resolvelos y tocá Continuar.') : t('{name} ahora está encima de {name2}.', { name: source.name, name2: target.name }) }
                 })
             },
-        { label: `Avanzar ${target.name} hasta ${source.name} (si es avance rápido)`, icon: FastForward, onSelect: () => fastForward(target.ref, source.ref) }
+        { label: t('Avanzar {name} hasta {name2} (si es avance rápido)', { name: target.name, name2: source.name }), icon: FastForward, onSelect: () => fastForward(target.ref, source.ref) }
       )
     }
-    items.push({ kind: 'separator' }, { label: `Comparar ${source.name} con ${target.name}`, icon: GitCompareArrows, onSelect: () => onCompare(target.ref, source.ref) })
+    items.push({ kind: 'separator' }, { label: t('Comparar {name} con {name2}', { name: source.name, name2: target.name }), icon: GitCompareArrows, onSelect: () => onCompare(target.ref, source.ref) })
     return tidy(items)
   }
 

@@ -1,3 +1,4 @@
+import { t } from '../../../shared/i18n'
 // Temas de color. Cada tema es una paleta de colores base; los tonos intermedios (bordes,
 // selección, vidrio, sombras) salen de estos en styles.css con color-mix. Así el usuario puede
 // cambiar cualquier color y el resto se acomoda solo.
@@ -42,9 +43,9 @@ const lanes = (list: string[]) =>
 export const PALETTES: Palette[] = [
   {
     id: 'crema',
-    name: 'Crema',
+    name: t('Crema'),
     kind: 'light',
-    description: 'El pelaje de Ono: crema, damasco y caramelo.',
+    description: t('El pelaje de Ono: crema, damasco y caramelo.'),
     colors: {
       ground: '#eee6dc',
       panel: '#fbf7f2',
@@ -64,9 +65,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'papel',
-    name: 'Papel',
+    name: t('Papel'),
     kind: 'light',
-    description: 'Blanco y gris neutro, sin tinte.',
+    description: t('Blanco y gris neutro, sin tinte.'),
     colors: {
       ground: '#eceef1',
       panel: '#ffffff',
@@ -86,9 +87,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'niebla',
-    name: 'Niebla',
+    name: t('Niebla'),
     kind: 'light',
-    description: 'Gris azulado, frío y tranquilo.',
+    description: t('Gris azulado, frío y tranquilo.'),
     colors: {
       ground: '#e2e7ef',
       panel: '#f4f6fa',
@@ -108,9 +109,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'solar',
-    name: 'Solar',
+    name: t('Solar'),
     kind: 'light',
-    description: 'Papel sepia de bajo contraste para muchas horas.',
+    description: t('Papel sepia de bajo contraste para muchas horas.'),
     colors: {
       ground: '#eee8d5',
       panel: '#fdf6e3',
@@ -130,9 +131,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'cacao',
-    name: 'Cacao',
+    name: t('Cacao'),
     kind: 'dark',
-    description: 'Ono de noche: cacao y espresso con acento caramelo.',
+    description: t('Ono de noche: cacao y espresso con acento caramelo.'),
     colors: {
       ground: '#16110e',
       panel: '#211a16',
@@ -152,9 +153,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'abismo',
-    name: 'Abismo',
+    name: t('Abismo'),
     kind: 'dark',
-    description: 'Azul profundo con turquesa, como GitKraken.',
+    description: t('Azul profundo con turquesa, como GitKraken.'),
     colors: {
       ground: '#181b23',
       panel: '#1f232d',
@@ -174,9 +175,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'grafito',
-    name: 'Grafito',
+    name: t('Grafito'),
     kind: 'dark',
-    description: 'Gris neutro y mínimo; el color queda para las ramas.',
+    description: t('Gris neutro y mínimo; el color queda para las ramas.'),
     colors: {
       ground: '#161617',
       panel: '#1d1d1f',
@@ -196,9 +197,9 @@ export const PALETTES: Palette[] = [
   },
   {
     id: 'contraste',
-    name: 'Alto contraste',
+    name: t('Alto contraste'),
     kind: 'dark',
-    description: 'Negro puro y colores intensos, para ver mejor.',
+    description: t('Negro puro y colores intensos, para ver mejor.'),
     colors: {
       ground: '#000000',
       panel: '#0a0a0a',
@@ -223,41 +224,41 @@ export const DEFAULT_DARK = 'cacao'
 
 export const COLOR_GROUPS: { title: string; keys: { key: ColorKey; label: string }[] }[] = [
   {
-    title: 'Fondo y paneles',
+    title: t('Fondo y paneles'),
     keys: [
-      { key: 'ground', label: 'Fondo' },
-      { key: 'panel', label: 'Paneles' },
-      { key: 'raised', label: 'Menús y diálogos' }
+      { key: 'ground', label: t('Fondo') },
+      { key: 'panel', label: t('Paneles') },
+      { key: 'raised', label: t('Menús y diálogos') }
     ]
   },
   {
-    title: 'Texto',
+    title: t('Texto'),
     keys: [
-      { key: 'text', label: 'Principal' },
-      { key: 'text2', label: 'Secundario' },
-      { key: 'text3', label: 'Tenue' }
+      { key: 'text', label: t('Principal') },
+      { key: 'text2', label: t('Secundario') },
+      { key: 'text3', label: t('Tenue') }
     ]
   },
   {
-    title: 'Acento',
+    title: t('Acento'),
     keys: [
-      { key: 'accent', label: 'Acento (selección y botón principal)' },
-      { key: 'accentText', label: 'Enlaces y texto de acento' },
-      { key: 'onAccent', label: 'Texto sobre el acento' }
+      { key: 'accent', label: t('Acento (selección y botón principal)') },
+      { key: 'accentText', label: t('Enlaces y texto de acento') },
+      { key: 'onAccent', label: t('Texto sobre el acento') }
     ]
   },
   {
-    title: 'Cambios',
+    title: t('Cambios'),
     keys: [
-      { key: 'added', label: 'Agregado' },
-      { key: 'deleted', label: 'Borrado' },
-      { key: 'modified', label: 'Modificado' },
-      { key: 'renamed', label: 'Renombrado' }
+      { key: 'added', label: t('Agregado') },
+      { key: 'deleted', label: t('Borrado') },
+      { key: 'modified', label: t('Modificado') },
+      { key: 'renamed', label: t('Renombrado') }
     ]
   },
   {
-    title: 'Carriles del gráfico',
-    keys: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ key: `lane${i}` as ColorKey, label: `Carril ${i + 1}` }))
+    title: t('Carriles del gráfico'),
+    keys: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ key: `lane${i}` as ColorKey, label: t('Carril {value}', { value: i + 1 }) }))
   }
 ]
 
@@ -325,13 +326,13 @@ export function contrastRatio(a: string, b: string): number {
 
 /** Pares que tienen que leerse bien, con el mínimo que pide WCAG AA. */
 export const CONTRAST_CHECKS: { fg: ColorKey; bg: ColorKey; min: number; label: string }[] = [
-  { fg: 'text', bg: 'panel', min: 4.5, label: 'Texto sobre los paneles' },
-  { fg: 'text2', bg: 'panel', min: 4.5, label: 'Texto secundario sobre los paneles' },
-  { fg: 'text3', bg: 'panel', min: 4.5, label: 'Texto tenue sobre los paneles' },
-  { fg: 'text', bg: 'ground', min: 4.5, label: 'Texto sobre el fondo' },
-  { fg: 'text2', bg: 'ground', min: 4.5, label: 'Texto secundario sobre el fondo' },
-  { fg: 'accentText', bg: 'panel', min: 4.5, label: 'Texto de acento sobre los paneles' },
-  { fg: 'onAccent', bg: 'accent', min: 4.5, label: 'Texto sobre el acento' }
+  { fg: 'text', bg: 'panel', min: 4.5, label: t('Texto sobre los paneles') },
+  { fg: 'text2', bg: 'panel', min: 4.5, label: t('Texto secundario sobre los paneles') },
+  { fg: 'text3', bg: 'panel', min: 4.5, label: t('Texto tenue sobre los paneles') },
+  { fg: 'text', bg: 'ground', min: 4.5, label: t('Texto sobre el fondo') },
+  { fg: 'text2', bg: 'ground', min: 4.5, label: t('Texto secundario sobre el fondo') },
+  { fg: 'accentText', bg: 'panel', min: 4.5, label: t('Texto de acento sobre los paneles') },
+  { fg: 'onAccent', bg: 'accent', min: 4.5, label: t('Texto sobre el acento') }
 ]
 
 /** Problemas de contraste de un tema (para avisar en el editor de colores). */
@@ -352,12 +353,12 @@ export function importTheme(text: string): { base: Palette; overrides: Partial<T
   try {
     data = JSON.parse(text)
   } catch {
-    return { error: 'No es un tema de GitOno: el texto no es JSON válido.' }
+    return { error: t('No es un tema de GitOno: el texto no es JSON válido.') }
   }
   const record = (data ?? {}) as { base?: unknown; colors?: unknown }
   const base = typeof record.base === 'string' ? paletteById(record.base) : undefined
   if (!base || typeof record.colors !== 'object' || record.colors === null) {
-    return { error: 'No es un tema de GitOno: falta la paleta base o los colores.' }
+    return { error: t('No es un tema de GitOno: falta la paleta base o los colores.') }
   }
   const overrides: Partial<ThemeColors> = {}
   for (const key of COLOR_KEYS) {

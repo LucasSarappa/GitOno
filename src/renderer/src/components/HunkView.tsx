@@ -2,6 +2,7 @@ import { CircleSlash } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react'
 import { wholeHunk, type FileDiff, type LineSelection } from '../../../shared/patch'
 import type { PatchAction, WorkingArea } from '../../../shared/types'
+import { t, tn } from '../../../shared/i18n'
 
 interface Props {
   diff: FileDiff
@@ -28,6 +29,8 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
   }, [diff])
 
   const toggleLine = (hunk: number, line: number, e: MouseEvent) => {
+    // Arrastrar para seleccionar texto (y copiarlo) no elige líneas.
+    if (window.getSelection()?.toString()) return
     const next = new Set(selected)
     if (e.shiftKey && anchor && anchor.hunk === hunk) {
       const [from, to] = anchor.line < line ? [anchor.line, line] : [line, anchor.line]
@@ -49,12 +52,10 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
   return (
     <div className="hunks">
       <p className="hunks__hint text-2 small">
-        Clic en una línea agregada o borrada para elegirla (Shift+clic elige un rango). Los botones de cada bloque
-        actúan sobre las líneas elegidas, o sobre el bloque entero si no elegiste ninguna.
+        {t('Clic en una línea agregada o borrada para elegirla (Shift+clic elige un rango). Los botones de cada bloque actúan sobre las líneas elegidas, o sobre el bloque entero si no elegiste ninguna.')}
       </p>
       {diff.hunks.map((hunk, h) => {
         const count = hunk.lines.filter((_, l) => selected.has(key(h, l))).length
-        const what = count > 0 ? `${count} ${count === 1 ? 'línea' : 'líneas'}` : 'bloque'
         return (
           <section key={hunk.header + h} className="hunk">
             <header className="hunk__header">
@@ -65,15 +66,15 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
                 {area === 'unstaged' ? (
                   <>
                     <button className="btn btn--sm" disabled={busy} onClick={() => act('discard', h)}>
-                      Descartar {what}
+                      {count > 0 ? tn(count, 'Descartar {n} línea', 'Descartar {n} líneas') : t('Descartar bloque')}
                     </button>
                     <button className="btn btn--sm btn--primary" disabled={busy} onClick={() => act('stage', h)}>
-                      Preparar {what}
+                      {count > 0 ? tn(count, 'Preparar {n} línea', 'Preparar {n} líneas') : t('Preparar bloque')}
                     </button>
                   </>
                 ) : (
                   <button className="btn btn--sm" disabled={busy} onClick={() => act('unstage', h)}>
-                    Quitar {what}
+                    {count > 0 ? tn(count, 'Quitar {n} línea', 'Quitar {n} líneas') : t('Quitar bloque')}
                   </button>
                 )}
               </div>
@@ -95,8 +96,8 @@ export function HunkView({ diff, area, busy, onAction }: Props) {
                     <span className="hunk-line__sign">{line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ''}</span>
                     <span className="hunk-line__text">{line.text.replace(/\r$/, '')}</span>
                     {line.noNewline && (
-                      <span className="hunk-line__eol" title="Sin salto de línea al final del archivo">
-                        <CircleSlash size={11} strokeWidth={2} aria-label="Sin salto de línea al final" />
+                      <span className="hunk-line__eol" title={t('Sin salto de línea al final del archivo')}>
+                        <CircleSlash size={11} strokeWidth={2} aria-label={t('Sin salto de línea al final')} />
                       </span>
                     )}
                   </div>

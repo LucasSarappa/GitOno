@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RepoInfo } from '../../shared/types'
 import { api } from './api'
 import { ContextMenuProvider } from './components/ContextMenu'
 import { DialogProvider } from './components/Dialog'
+import { ProfileMenu } from './components/ProfileMenu'
 import { TitleBar } from './components/TitleBar'
 import { Welcome } from './components/Welcome'
 import { AppearanceProvider, useAppearance } from './lib/appearance'
 import { rememberRecent } from './lib/recent'
 import { loadSetting, saveSetting } from './lib/settings'
 import { RepoWorkspace } from './views/RepoWorkspace'
+import { t } from '../../shared/i18n'
 
 interface Tab {
   id: string
@@ -37,11 +39,15 @@ function Shell() {
   const { zoomBy } = useAppearance()
   const [error, setError] = useState<string | null>(null)
 
-  // Al abrir: las pestañas de la última vez, más la carpeta pasada por línea de comandos.
+  // Al abrir: las pestañas de la última vez (solo en la primera ventana), más la carpeta pasada por
+  // línea de comandos o con la que se abrió esta ventana.
+  const restoresTabs = useRef(false)
   useEffect(() => {
     void (async () => {
-      const saved = loadSetting<string[]>('openTabs', [])
-      const initial = await api.initialRepoPath().catch(() => null)
+      const start = await api.windowStart().catch(() => ({ repoPath: null, restoreTabs: false }))
+      restoresTabs.current = start.restoreTabs
+      const saved = start.restoreTabs ? loadSetting<string[]>('openTabs', []) : []
+      const initial = start.repoPath
       const paths = [...new Set([...saved, ...(initial ? [initial] : [])])]
       const opened: Tab[] = []
       for (const path of paths) {
@@ -55,7 +61,7 @@ function Shell() {
         }
       }
       if (opened.length > 0) {
-        const wanted = initial ? await api.openRepo(initial).then((r) => r.root, () => '') : loadSetting('activeTab', '')
+        const wanted = initial ? await api.openRepo(initial).then((r) => r.root, () => '') : start.restoreTabs ? loadSetting('activeTab', '') : ''
         setTabs(opened)
         setActiveId((opened.find((t) => t.repo?.root === wanted) ?? opened[0]).id)
       }
@@ -64,7 +70,7 @@ function Shell() {
   }, [])
 
   useEffect(() => {
-    if (!restored) return
+    if (!restored || !restoresTabs.current) return
     saveSetting(
       'openTabs',
       tabs.flatMap((t) => (t.repo ? [t.repo.root] : []))
@@ -141,6 +147,7 @@ function Shell() {
       if (key === 't') addTab()
       else if (key === 'w') closeTab(activeId)
       else if (key === 'o') void pickRepo()
+      else if (key === 'n' && e.shiftKey) void api.newWindow(null)
       else if (e.key === '=' || e.key === '+') zoomBy(1)
       else if (e.key === '-') zoomBy(-1)
       else if (e.key === '0') zoomBy(0)
@@ -155,14 +162,17 @@ function Shell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [tabs, activeId, addTab, closeTab, pickRepo, zoomBy])
 
+  const activeRepo = tabs.find((tab) => tab.id === activeId)?.repo ?? null
+
   return (
     <div className="app" data-platform={api.platform}>
       <TitleBar
-        tabs={tabs.map((t) => ({ id: t.id, title: t.repo?.name ?? 'Nueva pestaña', path: t.repo?.root ?? '' }))}
+        tabs={tabs.map((tab) => ({ id: tab.id, title: tab.repo?.name ?? t('Nueva pestaña'), path: tab.repo?.root ?? '' }))}
         activeId={activeId}
         onSelect={setActiveId}
         onClose={closeTab}
         onNew={addTab}
+        end={<ProfileMenu root={activeRepo?.root ?? null} repoName={activeRepo?.name ?? null} />}
       />
       {tabs.map((tab) => (
         <div key={tab.id} className="tab-page" hidden={tab.id !== activeId}>

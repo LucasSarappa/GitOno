@@ -2,6 +2,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { fuzzyFilter } from '../lib/fuzzy'
+import { t } from '../../../shared/i18n'
 
 type Icon = typeof Search
 
@@ -53,20 +54,20 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
 
   return createPortal(
     <div className="palette-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="palette glass" role="dialog" aria-label="Paleta de comandos" onKeyDown={onKeyDown}>
+      <div className="palette glass" role="dialog" aria-label={t('Paleta de comandos')} onKeyDown={onKeyDown}>
         <label className="palette__input">
           <Search size={16} strokeWidth={1.75} aria-hidden />
           <input
             autoFocus
             value={query}
-            placeholder="Escribí un comando o el nombre de una rama…"
+            placeholder={t('Escribí un comando o el nombre de una rama…')}
             onChange={(e) => setQuery(e.target.value)}
             aria-controls="palette-list"
             aria-activedescendant={results[active] ? `cmd-${results[active].id}` : undefined}
           />
         </label>
         <div className="palette__list" id="palette-list" role="listbox" ref={listRef}>
-          {results.length === 0 && <div className="palette__empty">Ningún comando coincide con "{query}".</div>}
+          {results.length === 0 && <div className="palette__empty">{t('Ningún comando coincide con "{query}".', { query })}</div>}
           {results.map((command, index) => {
             const Icon = command.icon
             return (

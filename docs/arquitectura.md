@@ -38,6 +38,21 @@ flowchart LR
 
 Los errores viajan como `{ ok: false, error }` y el preload los vuelve a lanzar como `Error` con un mensaje legible, así la interfaz los muestra tal cual.
 
+### Varias ventanas
+
+- `index.ts` crea cada ventana con un `WindowStart` (`repoPath` y `restoreTabs`), que la interfaz pide con `windowStart()`. Solo la primera recupera y guarda las pestañas de la última vez; las que se abren con `newWindow()` (Ctrl+Shift+N, "Abrir en una ventana nueva") empiezan vacías o con un repo.
+- Las ventanas comparten las preferencias (`localStorage`): cuando una cambia la apariencia o los perfiles, las demás se enteran por el evento `storage`.
+- Los repos vigilados son de cada ventana (clave `id de la ventana|carpeta`), así dos ventanas pueden tener el mismo repo, y cerrar una deja de vigilar solo los suyos.
+- `editMenu.ts`: menú de clic derecho para copiar, cortar y pegar sobre texto seleccionado o en campos (Electron no trae ninguno). Los menús propios de la app y el de Monaco cancelan el evento y no llegan hasta ahí.
+
+### Idioma (`src/shared/i18n.ts`)
+
+- Estilo gettext: el texto en español es la clave. `t('Rama {name} creada.', { name })` devuelve el español o busca la traducción en `i18n.en.ts`; `tn(n, singular, plural)` elige la forma y formatea el número; `tr()` (`renderer/src/lib/i18n.tsx`) acepta elementos de React como variables (negritas, código, enlaces).
+- Lo comparten el proceso principal (errores de Git y diálogos nativos, que siguen el idioma con `setLocale` por IPC) y la interfaz.
+- La interfaz fija el idioma antes de cargar el resto (`lib/locale.ts` es el primer import de `main.tsx`), porque hay textos que se arman al cargar cada módulo (columnas, temas, disposiciones). Por eso cambiar de idioma recarga la ventana; las pestañas se recuperan solas.
+- `main/i18n.test.ts` recorre el código, junta cada texto de `t`, `tn` y `tr`, y falla si falta su traducción o si las variables `{…}` no coinciden.
+- Los términos de cada idioma están en `docs/glosario.md`.
+
 ### Seguridad
 
 - `contextIsolation: true`, `nodeIntegration: false` y `sandbox: true`: la interfaz no puede ejecutar código de Node.
@@ -112,6 +127,13 @@ Decisiones:
 - **Diff viejo:** si el archivo cambió entre que se mostró el diff y se aplicó la acción, `git apply` falla sin tocar nada (lo verifica un test), y la app muestra el error.
 - **Finales de línea de Windows:** se conserva el `\r` de cada línea, y Git convierte los finales al aplicar. Hay un test con `core.autocrlf=true`.
 - **Solo archivos modificados:** por ahora, preparar por línea se ofrece solo en archivos modificados. Los nuevos, borrados o renombrados se manejan enteros.
+
+### Identidad y perfiles (`src/main/git/identity.ts`)
+
+- `readIdentity` lee `user.name` y `user.email` de la configuración global y, con un repo, la propia del repo (que manda sobre la global). `writeIdentity` cambia una u otra; con `null` en un repo la quita y el repo vuelve a la global.
+- Valida el nombre (sin saltos de línea ni `<` `>`) y el email antes de escribir.
+- Los perfiles guardados (nombre del perfil, nombre y email) viven en las preferencias de la interfaz (`lib/profiles.ts`); Git solo guarda la identidad en uso. `ProfileMenu.tsx` es el botón con la foto en la barra de título: la primera vez convierte la identidad global en el perfil "Personal", y relee la identidad al volver a la ventana por si se cambió desde la terminal.
+- El test usa `GIT_CONFIG_GLOBAL` con un archivo temporal, así no toca la configuración del usuario.
 
 ### Vigilancia del disco (`src/main/git/watch.ts`)
 
@@ -235,7 +257,7 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
 - `lib/ghost.ts`: la rama fantasma. Sube desde un commit hacia sus hijos siguiendo la línea de primeros padres (prefiere el mismo carril) hasta encontrar una etiqueta de rama. Se calcula solo para la fila con el mouse encima y la elegida.
 - `lib/fuzzy.ts` y `components/CommandPalette.tsx`: la paleta de comandos (Ctrl+P). La búsqueda difusa no distingue tildes y suma por letras seguidas y por inicio de palabra. Los comandos los arma `RepoWorkspace`: operaciones, checkout y linaje de cada rama, vistas, temas, zoom, "abrir en" y atajos.
 - `lib/links.ts`: direcciones de commits, ramas y pull/merge requests en GitHub y GitLab.
-- `components/TitleBar.tsx`: barra de título propia, con el logo y las pestañas.
+- `components/TitleBar.tsx`: barra de título propia, con el logo, las pestañas y, a la derecha, el perfil (`ProfileMenu`).
   - **Windows:** `titleBarStyle: 'hidden'` con `titleBarOverlay`; los botones nativos toman los colores del tema.
   - **macOS:** `hiddenInset`, con los semáforos a la izquierda.
   - **Linux:** se deja la barra del sistema, y las pestañas van en una fila propia.
@@ -268,7 +290,9 @@ listChangeRequests(repo): Promise<ChangeRequest[]> // PR en GitHub, MR en GitLab
 - `lib/refs.ts`: arma las etiquetas de cada commit y junta una rama local con su remota cuando apuntan al mismo commit.
 - `lib/settings.ts`: preferencias guardadas (paneles y columnas del historial, secciones cerradas del panel de ramas, modo de pull, ramas ocultas por repo, opciones del diff, pestañas). Si el almacenamiento falla, se usan los valores por defecto.
 
-Los estados de archivo usan íconos (más, menos, lápiz, flecha) sobre el color del estado, en lugar de las letras de Git (A, M, D), para no confundirlos con "rama A" y "rama B" (`components/StatusBadge.tsx`).
+Los estados de archivo usan íconos (más, menos, lápiz, flecha) del color del estado, sin fondo, como GitKraken, en lugar de las letras de Git (A, M, D), para no confundirlos con "rama A" y "rama B" (`components/StatusBadge.tsx`).
+
+**Paneles ocultos:** cada panel cerrado deja una pestaña (`.dock-rail`) pegada al borde del gráfico donde estaba; un clic lo vuelve a abrir (`HistoryView.tsx`).
 
 **Estilos:** el sistema visual está en `DESIGN.md` y se implementa en `styles.css` con variables CSS por tema. Los colores de carril del gráfico también son variables (`--lane-0` … `--lane-7`), así cambian con el tema.
 
@@ -282,6 +306,8 @@ Los commits llegan de más nuevo a más viejo. Se mantiene una lista de **carril
 2. Si ningún carril lo espera, es la punta de una rama: abre un carril nuevo con un color nuevo.
 3. Después, el carril pasa a esperar al **primer padre** y mantiene su color. Los otros padres (en un merge) se suman a un carril que ya los esperaba, o abren uno nuevo.
 4. Los carriles que quedan libres se reutilizan, y los vacíos del final se recortan para que el gráfico no crezca de más.
+
+**Filas virtuales:** la fila WIP y las de los stashes no son commits. Se marcan `virtual`: su carril es gris y punteado hasta el commit del que salen, y ese commit recupera un color propio. `withStashRows` intercala cada stash entre los commits por fecha, pero siempre arriba de su commit base (si no, la línea hacia él subiría), y solo si ese commit está cargado.
 
 Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia abajo. Así cada fila se dibuja sola, que es lo que necesita la lista virtualizada. El cálculo es lineal en la cantidad de commits: 20.000 se procesan al instante.
 
@@ -304,7 +330,9 @@ Cada fila guarda sus líneas en dos mitades: de arriba al nodo y del nodo hacia 
 - `avatars.test.ts`: emails privados de GitHub, Gravatar (también sin foto), caché en disco y la API de GitHub fallando.
 - `providers/providers.test.ts`: lectura de URLs y detección de plataforma.
 - `renderer/src/lib/merge.test.ts`: lectura de mensajes de merge de Git, GitHub y GitLab.
-- `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados, fila WIP punteada).
+- `renderer/src/lib/graph.test.ts`: carriles del gráfico (historia lineal, merges, ramas que nacen del mismo commit, carriles reutilizados, fila WIP punteada) y dónde va la fila de cada stash.
+- `git/identity.test.ts`: identidad global y del repo (leer, cambiar, volver a la global, datos inválidos), con una configuración global de prueba.
+- `main/i18n.test.ts`: que cada texto de la interfaz tenga su traducción al inglés con las mismas variables, y `t` / `tn` en los dos idiomas.
 - `renderer/src/lib/refs.test.ts`: etiquetas de cada commit.
 - `renderer/src/lib/tree.test.ts`: armado del árbol de archivos.
 - `renderer/src/lib/columns.test.ts`: columnas que se ven según el espacio, el orden y los anchos elegidos.

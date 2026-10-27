@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import type { Side } from '../lib/dock'
+import { t } from '../../../shared/i18n'
 
 interface Props {
   /** De qué lado del divisor está el panel que cambia de tamaño. */
@@ -61,7 +62,7 @@ export function Splitter({ side, size, min, max, label, style, onChange, onReset
       aria-valuemin={min}
       aria-valuemax={max}
       tabIndex={0}
-      title={`${label} · doble clic para volver al tamaño original`}
+      title={t('{label} · doble clic para volver al tamaño original', { label })}
       style={style}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

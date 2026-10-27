@@ -27,6 +27,7 @@ import {
 } from './parse'
 import { progressReader } from './progress'
 import { assertSafeRef, git, GitError, gitText } from './run'
+import { t } from '../../shared/i18n'
 
 /** Archivos más grandes que esto no se muestran en el visor. */
 export const MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -37,7 +38,7 @@ export async function openRepo(path: string): Promise<RepoInfo> {
     root = (await gitText(path, ['rev-parse', '--show-toplevel'])).trim()
   } catch (error) {
     if (error instanceof GitError && /not a git repository/i.test(error.stderr)) {
-      throw new GitError('La carpeta elegida no es un repositorio Git.')
+      throw new GitError(t('La carpeta elegida no es un repositorio Git.'))
     }
     throw error
   }

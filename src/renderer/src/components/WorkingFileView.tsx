@@ -7,6 +7,7 @@ import { DiffView, type DiffOptions } from './DiffView'
 import { EmptyState } from './EmptyState'
 import { HunkView } from './HunkView'
 import { StatusBadge } from './StatusBadge'
+import { t, tn } from '../../../shared/i18n'
 
 interface Props {
   root: string
@@ -24,7 +25,7 @@ interface Props {
 
 type Mode = 'hunks' | 'side'
 
-const AREA_LABEL: Record<WorkingArea, string> = { unstaged: 'Sin preparar', staged: 'Preparado' }
+const AREA_LABEL: Record<WorkingArea, string> = { unstaged: t('Sin preparar'), staged: t('Preparado') }
 
 /** Cambios locales de un archivo, en el centro de la pantalla. */
 export function WorkingFileView({ root, file, area, reloadKey, options, onOptionsChange, onBack, onChanged, onError }: Props) {
@@ -63,12 +64,12 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
 
   const confirmDiscard = (what: string) =>
     api.confirm({
-      title: 'Descartar cambios',
-      message: `¿Descartar ${what} de "${name}"?`,
+      title: t('Descartar cambios'),
+      message: t('¿Descartar {what} de "{name}"?', { what, name }),
       detail: file.untracked
-        ? 'El archivo va a ir a la papelera de reciclaje.'
-        : 'Los cambios descartados no se pueden recuperar.',
-      confirmLabel: 'Descartar'
+        ? t('El archivo va a ir a la papelera de reciclaje.')
+        : t('Los cambios descartados no se pueden recuperar.'),
+      confirmLabel: t('Descartar')
     })
 
   const applyLines = (action: PatchAction, selection: LineSelection, lineCount: number | null) => {
@@ -76,7 +77,7 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
     const patch = buildPatch(diff, selection, action === 'stage' ? 'forward' : 'reverse')
     if (!patch) return
     void run(async () => {
-      const what = lineCount ? `${lineCount} ${lineCount === 1 ? 'línea' : 'líneas'}` : 'este bloque'
+      const what = lineCount ? tn(lineCount, '{n} línea', '{n} líneas') : t('este bloque')
       if (action === 'discard' && !(await confirmDiscard(what))) return
       await api.applyPatch(root, patch, action)
     })
@@ -86,14 +87,14 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
   const unstageWhole = () => run(() => api.unstageFiles(root, file.oldPath ? [file.oldPath, file.path] : [file.path]))
   const discardWhole = () =>
     run(async () => {
-      if (await confirmDiscard('todos los cambios sin preparar')) await api.discardFiles(root, [file])
+      if (await confirmDiscard(t('todos los cambios sin preparar'))) await api.discardFiles(root, [file])
     })
 
   // Lado a lado: preparado = último commit contra índice; sin preparar = índice contra disco.
   const sides: [FileSource, FileSource, string, string] =
     area === 'staged'
-      ? [{ kind: 'ref', ref: 'HEAD' }, { kind: 'index' }, 'último commit', 'preparado']
-      : [{ kind: 'index' }, { kind: 'worktree' }, 'preparado', 'carpeta de trabajo']
+      ? [{ kind: 'ref', ref: 'HEAD' }, { kind: 'index' }, t('último commit'), t('preparado')]
+      : [{ kind: 'index' }, { kind: 'worktree' }, t('preparado'), t('carpeta de trabajo')]
 
   const noChangesLeft = showHunks && diff !== null && diff.hunks.length === 0 && !diff.binary
 
@@ -102,36 +103,36 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
       <div className="backbar">
         <button className="btn btn--sm" onClick={onBack}>
           <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
-          Volver al historial
+          {t('Volver al historial')}
         </button>
-        <StatusBadge status={file.status} title={file.untracked ? 'Archivo nuevo' : undefined} />
+        <StatusBadge status={file.status} title={file.untracked ? t('Archivo nuevo') : undefined} />
         <strong className="working-file__path" title={file.path}>
           {file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
         </strong>
         <span className={`area-badge area-badge--${area}`}>{AREA_LABEL[area]}</span>
         <span className="working-file__spacer" />
         {canUseHunks && (
-          <div className="segmented" role="tablist" aria-label="Modo de vista">
+          <div className="segmented" role="tablist" aria-label={t('Modo de vista')}>
             <button role="tab" aria-selected={mode === 'hunks'} className={`segmented__item${mode === 'hunks' ? ' segmented__item--active' : ''}`} onClick={() => setMode('hunks')}>
-              Bloques
+              {t('Bloques')}
             </button>
             <button role="tab" aria-selected={mode === 'side'} className={`segmented__item${mode === 'side' ? ' segmented__item--active' : ''}`} onClick={() => setMode('side')}>
-              Comparar
+              {t('Comparar')}
             </button>
           </div>
         )}
         {area === 'unstaged' ? (
           <>
             <button className="btn btn--sm" disabled={busy} onClick={discardWhole}>
-              Descartar archivo
+              {t('Descartar archivo')}
             </button>
             <button className="btn btn--sm btn--primary" disabled={busy} onClick={stageWhole}>
-              Preparar archivo
+              {t('Preparar archivo')}
             </button>
           </>
         ) : (
           <button className="btn btn--sm" disabled={busy} onClick={unstageWhole}>
-            Quitar archivo
+            {t('Quitar archivo')}
           </button>
         )}
       </div>
@@ -139,13 +140,13 @@ export function WorkingFileView({ root, file, area, reloadKey, options, onOption
       <div className="working-file__body">
         {showHunks ? (
           diff === null ? (
-            <EmptyState title="Cargando cambios…" />
+            <EmptyState title={t('Cargando cambios…')} />
           ) : noChangesLeft ? (
-            <EmptyState title={area === 'unstaged' ? 'No quedan cambios sin preparar' : 'No quedan cambios preparados'}>
-              Este archivo ya no tiene cambios en esta sección.
+            <EmptyState title={area === 'unstaged' ? t('No quedan cambios sin preparar') : t('No quedan cambios preparados')}>
+              {t('Este archivo ya no tiene cambios en esta sección.')}
             </EmptyState>
           ) : diff.binary ? (
-            <EmptyState title="Archivo binario">Solo se puede preparar o descartar entero.</EmptyState>
+            <EmptyState title={t('Archivo binario')}>{t('Solo se puede preparar o descartar entero.')}</EmptyState>
           ) : (
             <HunkView diff={diff} area={area} busy={busy} onAction={applyLines} />
           )

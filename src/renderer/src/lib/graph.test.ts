@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeGraph, VIRTUAL_COLOR } from './graph'
+import { computeGraph, VIRTUAL_COLOR, withStashRows } from './graph'
 
 const c = (sha: string, ...parents: string[]) => ({ sha, parents })
 
@@ -86,5 +86,30 @@ describe('fila de cambios sin commitear (WIP)', () => {
     expect(head.color).not.toBe(VIRTUAL_COLOR)
     // Debajo de HEAD la línea ya es normal.
     expect(head.bottom.every((l) => !l.dashed)).toBe(true)
+  })
+})
+
+describe('filas de los stashes', () => {
+  const commit = (sha: string, authorDate: number) => ({ sha, authorDate })
+  const row = (stash: { sha: string; date: number }) => ({ sha: stash.sha, authorDate: stash.date })
+  const commits = [commit('C3', 300), commit('C2', 200), commit('C1', 100)]
+
+  it('van entre los commits según su fecha', () => {
+    const rows = withStashRows(commits, [{ sha: 'S', base: 'C1', date: 250 }], row)
+    expect(rows.map((r) => r.sha)).toEqual(['C3', 'S', 'C2', 'C1'])
+  })
+
+  it('nunca quedan debajo de su commit base', () => {
+    const rows = withStashRows(commits, [{ sha: 'S', base: 'C2', date: 50 }], row)
+    expect(rows.map((r) => r.sha)).toEqual(['C3', 'S', 'C2', 'C1'])
+  })
+
+  it('se omiten si su commit base no está cargado, y el más nuevo va primero', () => {
+    const stashes = [
+      { sha: 'viejo', base: 'C1', date: 400 },
+      { sha: 'nuevo', base: 'C1', date: 500 },
+      { sha: 'suelto', base: 'X', date: 600 }
+    ]
+    expect(withStashRows(commits, stashes, row).map((r) => r.sha)).toEqual(['nuevo', 'viejo', 'C3', 'C2', 'C1'])
   })
 })

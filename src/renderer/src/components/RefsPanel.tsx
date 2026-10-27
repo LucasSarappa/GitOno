@@ -5,6 +5,7 @@ import { relativeDate } from '../lib/format'
 import { splitRemoteName } from '../lib/refs'
 import { loadSetting, saveSetting } from '../lib/settings'
 import { REF_DRAG_TYPE, type MenuAnchor } from './CommitList'
+import { t } from '../../../shared/i18n'
 
 interface Section {
   id: string
@@ -57,7 +58,7 @@ export function RefsPanel(props: Props) {
     }
 
     return [
-      { id: 'local', title: 'Locales', Icon: Laptop, refs: matching.filter((r) => r.kind === 'local'), display: (r) => r.name },
+      { id: 'local', title: t('Locales'), Icon: Laptop, refs: matching.filter((r) => r.kind === 'local'), display: (r) => r.name },
       ...[...remotes].map(([remote, list]) => ({
         id: `remote:${remote}`,
         title: remote,
@@ -65,7 +66,7 @@ export function RefsPanel(props: Props) {
         refs: list,
         display: (r: RefInfo) => splitRemoteName(r.name).branch
       })),
-      { id: 'tags', title: 'Tags', Icon: Tag, refs: matching.filter((r) => r.kind === 'tag'), display: (r) => r.name }
+      { id: 'tags', title: t('Etiquetas'), Icon: Tag, refs: matching.filter((r) => r.kind === 'tag'), display: (r) => r.name }
     ]
   }, [refs, query])
 
@@ -113,7 +114,7 @@ export function RefsPanel(props: Props) {
     <div className="refs-panel">
       <label className="field field--search refs-panel__filter">
         <Search size={14} strokeWidth={1.75} aria-hidden />
-        <input type="search" placeholder="Filtrar ramas, tags y stashes" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder={t('Filtrar ramas, etiquetas y guardados')} value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       <div className="refs-panel__scroll">
         {sections.map((section) => {
@@ -123,7 +124,7 @@ export function RefsPanel(props: Props) {
               <SectionHeader id={section.id} title={section.title} Icon={section.Icon} count={section.refs.length} open={open} onToggle={toggle} />
               {open && (
                 <ul>
-                  {section.refs.length === 0 && <li className="refs-section__empty">Ninguna</li>}
+                  {section.refs.length === 0 && <li className="refs-section__empty">{t('Ninguna')}</li>}
                   {section.refs.map((ref) => {
                     const current = ref.ref === refs.current
                     const selected = ref.ref === selectedRef
@@ -160,17 +161,17 @@ export function RefsPanel(props: Props) {
                         </button>
                         <button
                           className={`ref-row__eye ref-row__lineage${selected ? ' ref-row__eye--on' : ''}`}
-                          aria-label={selected ? `Dejar de ver de dónde sale ${ref.name}` : `Ver de dónde sale ${ref.name}`}
+                          aria-label={selected ? t('Dejar de ver de dónde sale {name}', { name: ref.name }) : t('Ver de dónde sale {name}', { name: ref.name })}
                           aria-pressed={selected}
-                          title={selected ? 'Dejar de ver el linaje (Esc)' : 'Ver de dónde sale y dónde se mergeó'}
+                          title={selected ? t('Dejar de ver el linaje (Esc)') : t('Ver de dónde sale y dónde se fusionó')}
                           onClick={() => props.onShowLineage(ref)}
                         >
                           <Crosshair size={13} strokeWidth={1.75} />
                         </button>
                         <button
                           className={`ref-row__eye${isHidden ? ' ref-row__eye--on' : ''}`}
-                          aria-label={isHidden ? `Mostrar ${ref.name} en el gráfico` : `Ocultar ${ref.name} en el gráfico`}
-                          title={solo.has(ref.ref) ? 'Se muestra sola (clic derecho para cambiarlo)' : isHidden ? 'Oculta en el gráfico' : 'Ocultar en el gráfico'}
+                          aria-label={isHidden ? t('Mostrar {name} en el gráfico', { name: ref.name }) : t('Ocultar {name} en el gráfico', { name: ref.name })}
+                          title={solo.has(ref.ref) ? t('Se muestra sola (clic derecho para cambiarlo)') : isHidden ? t('Oculta en el gráfico') : t('Ocultar en el gráfico')}
                           onClick={() => props.onToggleHidden(ref)}
                         >
                           {solo.has(ref.ref) ? (
@@ -191,15 +192,15 @@ export function RefsPanel(props: Props) {
         })}
 
         <section className="refs-section">
-          <SectionHeader id="stashes" title="Stashes" Icon={Archive} count={visibleStashes.length} open={!closed.has('stashes')} onToggle={toggle} />
+          <SectionHeader id="stashes" title={t('Guardados')} Icon={Archive} count={visibleStashes.length} open={!closed.has('stashes')} onToggle={toggle} />
           {!closed.has('stashes') && (
             <ul>
-              {visibleStashes.length === 0 && <li className="refs-section__empty">Ninguno</li>}
+              {visibleStashes.length === 0 && <li className="refs-section__empty">{t('Ninguno')}</li>}
               {visibleStashes.map((stash) => (
                 <li key={stash.sha} className="ref-row">
                   <button
                     className={`ref-item ref-item--stash${stash.sha === selectedStash ? ' ref-item--selected' : ''}`}
-                    title={`${stash.message}\nGuardado ${relativeDate(stash.date)} · clic derecho para aplicarlo o borrarlo`}
+                    title={t('{message}\nGuardado {value} · clic derecho para aplicarlo o borrarlo', { message: stash.message, value: relativeDate(stash.date) })}
                     onClick={() => props.onSelectStash(stash)}
                     onContextMenu={(e) => {
                       e.preventDefault()
@@ -254,10 +255,10 @@ function SectionHeader({
 /** Commits para subir (↑) y para bajar (↓) respecto de la remota que sigue la rama. */
 function Tracking({ info: ref }: { info: RefInfo }) {
   if (ref.kind !== 'local' || !ref.upstream) return null
-  if (ref.upstreamGone) return <span className="ref-item__meta" title="La rama remota que seguía se borró del servidor">sin remota</span>
+  if (ref.upstreamGone) return <span className="ref-item__meta" title={t('La rama remota que seguía se borró del servidor')}>{t('sin remota')}</span>
   if (!ref.ahead && !ref.behind) return null
   return (
-    <span className="tracking" aria-label={`${ref.ahead ?? 0} para subir, ${ref.behind ?? 0} para bajar`}>
+    <span className="tracking" aria-label={t('{value} para subir, {value2} para bajar', { value: ref.ahead ?? 0, value2: ref.behind ?? 0 })}>
       {(ref.ahead ?? 0) > 0 && (
         <span>
           <ArrowUp size={11} strokeWidth={2.25} aria-hidden />
@@ -275,9 +276,9 @@ function Tracking({ info: ref }: { info: RefInfo }) {
 }
 
 function refTitle(ref: RefInfo, current: boolean): string {
-  const lines = [current ? `${ref.name} (rama actual)` : ref.name]
-  if (ref.upstream) lines.push(`Sigue a ${ref.upstream.replace(/^refs\/remotes\//, '')}`)
-  lines.push(current ? 'Clic: ir a su commit · clic derecho: más opciones' : 'Clic: ir a su commit · doble clic: checkout · clic derecho: más opciones')
+  const lines = [current ? t('{name} (rama actual)', { name: ref.name }) : ref.name]
+  if (ref.upstream) lines.push(t('Sigue a {value}', { value: ref.upstream.replace(/^refs\/remotes\//, '') }))
+  lines.push(current ? t('Clic: ir a su commit · clic derecho: más opciones') : t('Clic: ir a su commit · doble clic: cambiar a esta rama · clic derecho: más opciones'))
   return lines.join('\n')
 }
 

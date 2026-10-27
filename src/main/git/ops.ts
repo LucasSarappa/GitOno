@@ -5,6 +5,7 @@ import type { GitProgress, MergeMode, Outcome, PullMode, ResetMode, StashInfo } 
 import { progressReader } from './progress'
 import { assertSafeRef, git, GitError, gitText } from './run'
 import { currentOperation } from './worktree'
+import { t } from '../../shared/i18n'
 
 /** Las operaciones con el servidor y los hooks pueden tardar bastante más que una lectura. */
 const SLOW = { timeoutMs: 10 * 60_000 }
@@ -14,14 +15,14 @@ const REMOTE = 'refs/remotes/'
 const TAG = 'refs/tags/'
 
 function localName(ref: string): string {
-  if (!ref.startsWith(LOCAL)) throw new GitError(`"${ref}" no es una rama local.`)
+  if (!ref.startsWith(LOCAL)) throw new GitError(t('"{ref}" no es una rama local.', { ref }))
   const name = ref.slice(LOCAL.length)
   assertSafeRef(name)
   return name
 }
 
 function tagName(ref: string): string {
-  if (!ref.startsWith(TAG)) throw new GitError(`"${ref}" no es un tag.`)
+  if (!ref.startsWith(TAG)) throw new GitError(t('"{ref}" no es una etiqueta.', { ref }))
   const name = ref.slice(TAG.length)
   assertSafeRef(name)
   return name
@@ -46,7 +47,7 @@ async function checkBranchName(root: string, name: string): Promise<string> {
   try {
     return (await gitText(root, ['check-ref-format', '--branch', clean])).trim()
   } catch {
-    throw new GitError(`"${clean}" no sirve como nombre de rama: no puede tener espacios, "..", "~", "^", ":", "?", "*" ni "[".`)
+    throw new GitError(t('"{name}" no sirve como nombre de rama: no puede tener espacios, "..", "~", "^", ":", "?", "*" ni "[".', { name: clean }))
   }
 }
 
@@ -56,7 +57,7 @@ async function checkTagName(root: string, name: string): Promise<string> {
   try {
     await git(root, ['check-ref-format', `${TAG}${clean}`])
   } catch {
-    throw new GitError(`"${clean}" no sirve como nombre de tag.`)
+    throw new GitError(t('"{name}" no sirve como nombre de etiqueta.', { name: clean }))
   }
   return clean
 }
@@ -67,10 +68,10 @@ export async function listRemotes(root: string): Promise<string[]> {
 
 /** Separa "refs/remotes/origin/feature/x" en remoto y rama. Los remotos pueden tener "/" en el nombre. */
 async function splitRemoteRef(root: string, ref: string): Promise<{ remote: string; branch: string }> {
-  if (!ref.startsWith(REMOTE)) throw new GitError(`"${ref}" no es una rama remota.`)
+  if (!ref.startsWith(REMOTE)) throw new GitError(t('"{ref}" no es una rama remota.', { ref }))
   const rest = ref.slice(REMOTE.length)
   const remote = (await listRemotes(root)).filter((r) => rest.startsWith(`${r}/`)).sort((a, b) => b.length - a.length)[0]
-  if (!remote) throw new GitError(`No se encontró el remoto de "${rest}".`)
+  if (!remote) throw new GitError(t('No se encontró el remoto de "{name}".', { name: rest }))
   return { remote, branch: rest.slice(remote.length + 1) }
 }
 
@@ -103,7 +104,7 @@ export async function checkout(root: string, target: string): Promise<string | n
 
 export async function createBranch(root: string, name: string, startPoint: string, switchTo: boolean): Promise<string> {
   const branch = await checkBranchName(root, name)
-  if (await refExists(root, `${LOCAL}${branch}`)) throw new GitError(`Ya existe una rama "${branch}".`)
+  if (await refExists(root, `${LOCAL}${branch}`)) throw new GitError(t('Ya existe una rama "{name}".', { name: branch }))
   const start = await resolveCommit(root, startPoint)
   await git(root, switchTo ? ['switch', '--create', branch, start] : ['branch', branch, start])
   return `${LOCAL}${branch}`
@@ -111,7 +112,7 @@ export async function createBranch(root: string, name: string, startPoint: strin
 
 export async function renameBranch(root: string, ref: string, newName: string): Promise<string> {
   const branch = await checkBranchName(root, newName)
-  if (await refExists(root, `${LOCAL}${branch}`)) throw new GitError(`Ya existe una rama "${branch}".`)
+  if (await refExists(root, `${LOCAL}${branch}`)) throw new GitError(t('Ya existe una rama "{name}".', { name: branch }))
   await git(root, ['branch', '--move', localName(ref), branch])
   return `${LOCAL}${branch}`
 }
@@ -124,7 +125,7 @@ export async function deleteBranch(root: string, ref: string, force: boolean): P
   } catch (error) {
     // La interfaz reconoce este mensaje para ofrecer borrarla igual (NOT_MERGED en lib/actions.ts).
     if (error instanceof GitError && /not fully merged/i.test(error.stderr)) {
-      throw new GitError(`La rama "${localName(ref)}" tiene commits que no están en otra rama.`)
+      throw new GitError(t('La rama "{name}" tiene commits que no están en otra rama.', { name: localName(ref) }))
     }
     throw error
   }
@@ -146,7 +147,7 @@ export async function setUpstream(root: string, ref: string, upstream: string | 
     return
   }
   assertSafeRef(upstream)
-  if (!upstream.startsWith(REMOTE)) throw new GitError(`"${upstream}" no es una rama remota.`)
+  if (!upstream.startsWith(REMOTE)) throw new GitError(t('"{ref}" no es una rama remota.', { ref: upstream }))
   await git(root, ['branch', `--set-upstream-to=${upstream}`, branch])
 }
 
@@ -169,7 +170,7 @@ export async function fastForward(root: string, ref: string, to: string): Promis
     () => true,
     () => false
   )
-  if (!isFastForward) throw new GitError('No se puede avanzar la rama: tiene commits propios (no es un avance rápido).')
+  if (!isFastForward) throw new GitError(t('No se puede avanzar la rama: tiene commits propios (no es un avance rápido).'))
   if ((await currentBranch(root)) === ref) {
     await git(root, ['merge', '--ff-only', target])
     return
@@ -253,9 +254,9 @@ export async function reset(root: string, sha: string, mode: ResetMode): Promise
 /** Sigue la operación a medio hacer, después de resolver los conflictos (y prepararlos). */
 export async function continueOperation(root: string): Promise<Outcome> {
   const operation = await currentOperation(root)
-  if (!operation) throw new GitError('No hay ninguna operación a medio hacer.')
+  if (!operation) throw new GitError(t('No hay ninguna operación a medio hacer.'))
   const unmerged = (await gitText(root, ['diff', '--name-only', '--diff-filter=U'])).trim()
-  if (unmerged) throw new GitError('Todavía hay archivos con conflictos. Resolvelos y preparalos antes de continuar.')
+  if (unmerged) throw new GitError(t('Todavía hay archivos con conflictos. Resolvelos y preparalos antes de continuar.'))
   if (operation === 'merge') {
     // Se commitea con el mensaje que preparó Git ("Merge branch ..."). strip saca las líneas de
     // comentario ("# Conflicts: ...") como cuando se confirma desde el editor.
@@ -266,7 +267,7 @@ export async function continueOperation(root: string): Promise<Outcome> {
 
 export async function abortOperation(root: string): Promise<void> {
   const operation = await currentOperation(root)
-  if (!operation) throw new GitError('No hay ninguna operación a medio hacer.')
+  if (!operation) throw new GitError(t('No hay ninguna operación a medio hacer.'))
   await git(root, [operation, '--abort'])
 }
 
@@ -275,7 +276,7 @@ export async function abortOperation(root: string): Promise<void> {
 /** Crea un tag liviano o, con mensaje, uno anotado. */
 export async function createTag(root: string, name: string, sha: string, message: string | null): Promise<string> {
   const tag = await checkTagName(root, name)
-  if (await refExists(root, `${TAG}${tag}`)) throw new GitError(`Ya existe un tag "${tag}".`)
+  if (await refExists(root, `${TAG}${tag}`)) throw new GitError(t('Ya existe una etiqueta "{name}".', { name: tag }))
   const commit = await resolveCommit(root, sha)
   if (message?.trim()) await git(root, ['tag', '--annotate', '--file=-', tag, commit], { input: message })
   else await git(root, ['tag', tag, commit])
@@ -290,7 +291,7 @@ export async function deleteTag(root: string, ref: string): Promise<string> {
 }
 
 async function assertRemote(root: string, remote: string): Promise<void> {
-  if (!(await listRemotes(root)).includes(remote)) throw new GitError(`No existe el remoto "${remote}".`)
+  if (!(await listRemotes(root)).includes(remote)) throw new GitError(t('No existe el remoto "{name}".', { name: remote }))
 }
 
 export async function pushTag(root: string, ref: string, remote: string): Promise<void> {
@@ -315,9 +316,9 @@ const progressFlag = (onProgress?: OnProgress) => (onProgress ? ['--progress'] :
 
 export async function pull(root: string, mode: PullMode, onProgress?: OnProgress): Promise<Outcome> {
   const branch = await currentBranch(root)
-  if (!branch) throw new GitError('Con HEAD desacoplado no hay rama para actualizar. Hacé checkout de una rama.')
+  if (!branch) throw new GitError(t('Con HEAD desacoplado no hay rama para traer cambios. Cambiá a una rama.'))
   const upstream = await gitText(root, ['for-each-ref', '--format=%(upstream)', branch]).then((o) => o.trim())
-  if (!upstream) throw new GitError(`La rama "${localName(branch)}" no sigue ninguna rama remota. Publicala con Push o elegí cuál seguir.`)
+  if (!upstream) throw new GitError(t('La rama "{name}" no sigue ninguna rama remota. Publicala con Subir o elegí cuál seguir.', { name: localName(branch) }))
   const flags = { 'ff-or-merge': ['--no-rebase', '--ff'], 'ff-only': ['--ff-only'], rebase: ['--rebase'] }[mode]
   return withConflicts(root, () => git(root, ['pull', '--no-edit', ...progressFlag(onProgress), ...flags], withProgress(onProgress)))
 }
@@ -341,7 +342,7 @@ export async function push(root: string, ref: string, force: boolean, onProgress
   }
   const remotes = await listRemotes(root)
   const remote = remotes.includes('origin') ? 'origin' : remotes[0]
-  if (!remote) throw new GitError('Este repo no tiene remotos a donde subir la rama.')
+  if (!remote) throw new GitError(t('Este repo no tiene remotos a donde subir la rama.'))
   await git(root, ['push', ...flags, '--set-upstream', remote, `${ref}:${LOCAL}${branch}`], withProgress(onProgress))
 }
 
@@ -362,7 +363,7 @@ export async function listStashes(root: string): Promise<StashInfo[]> {
 }
 
 const stashRef = (index: number) => {
-  if (!Number.isInteger(index) || index < 0) throw new GitError('Stash inválido.')
+  if (!Number.isInteger(index) || index < 0) throw new GitError(t('Cambios guardados inválidos.'))
   return `stash@{${index}}`
 }
 

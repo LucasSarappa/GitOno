@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { shell } from 'electron'
 import type { OpenTarget } from '../shared/types'
 import { openRepo } from './git/repo'
+import { t } from '../shared/i18n'
 
 /** Lanza un programa suelto (sigue abierto aunque se cierre GitOno). Falla si no existe. */
 function launch(command: string, args: string[], options: { cwd?: string; shell?: boolean } = {}): Promise<void> {
@@ -42,7 +43,7 @@ async function openTerminal(root: string): Promise<void> {
       // probar la siguiente
     }
   }
-  throw new Error('No se encontró ninguna terminal para abrir.')
+  throw new Error(t('No se encontró ninguna terminal para abrir.'))
 }
 
 async function openEditor(root: string): Promise<void> {
@@ -52,7 +53,7 @@ async function openEditor(root: string): Promise<void> {
     if (process.platform === 'win32') await launch('code', [`"${root}"`], { shell: true })
     else await launch('code', [root])
   } catch {
-    throw new Error('No se encontró VS Code: instalalo y activá el comando "code" (en VS Code: "Shell Command: Install \'code\' command in PATH").')
+    throw new Error(t('No se encontró VS Code: instalalo y activá el comando "code" (en VS Code: "Shell Command: Install code command in PATH").'))
   }
 }
 
@@ -60,10 +61,10 @@ export async function openRepoIn(path: string, target: OpenTarget): Promise<void
   // Solo carpetas que son la raíz de un repo (lo confirma Git), y sin comillas: la ruta se le pasa a
   // la consola en Windows.
   const { root } = await openRepo(path)
-  if (root.includes('"')) throw new Error('La ruta del repo tiene comillas: no se puede abrir desde acá.')
+  if (root.includes('"')) throw new Error(t('La ruta del repo tiene comillas: no se puede abrir desde acá.'))
   if (target === 'folder') {
     const error = await shell.openPath(root)
-    if (error) throw new Error(`No se pudo abrir la carpeta: ${error}`)
+    if (error) throw new Error(t('No se pudo abrir la carpeta: {error}', { error }))
   } else if (target === 'terminal') {
     await openTerminal(root)
   } else {

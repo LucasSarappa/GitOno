@@ -10,7 +10,10 @@ async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
 const api: GitOnoApi = {
   pickRepo: () => call(IPC.pickRepo),
   openRepo: (path) => call(IPC.openRepo, path),
-  initialRepoPath: () => call(IPC.initialRepoPath),
+  windowStart: () => call(IPC.windowStart),
+  newWindow: (repoPath) => call(IPC.newWindow, repoPath),
+  readIdentity: (root) => call(IPC.readIdentity, root),
+  writeIdentity: (root, identity) => call(IPC.writeIdentity, root, identity),
   listRefs: (root) => call(IPC.listRefs, root),
   fetchAll: (root) => call(IPC.fetchAll, root),
   searchCode: (root, text) => call(IPC.searchCode, root, text),
@@ -82,6 +85,7 @@ const api: GitOnoApi = {
 
   platform: process.platform,
   setAppearance: (appearance) => call(IPC.setAppearance, appearance),
+  setLocale: (locale) => call(IPC.setLocale, locale),
   setZoom: (factor) => {
     // Entre 50 % y 300 %: un valor guardado roto no puede dejar la app ilegible.
     if (Number.isFinite(factor)) webFrame.setZoomFactor(Math.min(3, Math.max(0.5, factor)))

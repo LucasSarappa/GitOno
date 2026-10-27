@@ -1,5 +1,8 @@
-const relativeFormat = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
-const absoluteFormat = new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
+import { intlLocale, t } from '../../../shared/i18n'
+
+// El idioma ya está fijado cuando se carga este módulo (lib/locale.ts).
+const relativeFormat = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' })
+const absoluteFormat = new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['year', 365 * 24 * 3600],
@@ -16,7 +19,7 @@ export function relativeDate(seconds: number, nowSeconds = Date.now() / 1000): s
   for (const [unit, size] of UNITS) {
     if (Math.abs(diff) >= size) return relativeFormat.format(Math.round(diff / size), unit)
   }
-  return 'recién'
+  return t('recién')
 }
 
 export function absoluteDate(seconds: number): string {

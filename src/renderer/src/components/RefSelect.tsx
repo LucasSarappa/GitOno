@@ -1,9 +1,10 @@
 import type { RefInfo, RefKind, RefList } from '../../../shared/types'
+import { t } from '../../../shared/i18n'
 
 const GROUPS: { kind: RefKind; label: string }[] = [
-  { kind: 'local', label: 'Ramas locales' },
-  { kind: 'remote', label: 'Ramas remotas' },
-  { kind: 'tag', label: 'Tags' }
+  { kind: 'local', label: t('Ramas locales') },
+  { kind: 'remote', label: t('Ramas remotas') },
+  { kind: 'tag', label: t('Etiquetas') }
 ]
 
 interface Props {
@@ -19,9 +20,9 @@ export function RefSelect({ label, refs, value, onChange }: Props) {
   return (
     <label className={`ref-select${value ? '' : ' ref-select--empty'}`}>
       <span className="ref-select__label">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={`Rama ${label}`}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={t('Rama {label}', { label })}>
         <option value="" disabled>
-          Elegí una rama…
+          {t('Elegí una rama…')}
         </option>
         {GROUPS.map(({ kind, label: groupLabel }) => {
           const list = byKind(kind)
@@ -30,7 +31,7 @@ export function RefSelect({ label, refs, value, onChange }: Props) {
             <optgroup key={kind} label={groupLabel}>
               {list.map((r) => (
                 <option key={r.ref} value={r.ref}>
-                  {r.ref === refs.current ? `${r.name} (actual)` : r.name}
+                  {r.ref === refs.current ? t('{name} (actual)', { name: r.name }) : r.name}
                 </option>
               ))}
             </optgroup>

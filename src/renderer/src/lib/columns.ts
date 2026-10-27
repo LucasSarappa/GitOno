@@ -1,3 +1,4 @@
+import { t } from '../../../shared/i18n'
 // Columnas del historial, como en GitKraken: se pueden ensanchar, ocultar y reordenar.
 // Se guardan en las preferencias y valen para todos los repos.
 
@@ -14,11 +15,11 @@ export interface ColumnsConfig {
 }
 
 export const COLUMN_LABELS: Record<ColumnId, string> = {
-  refs: 'Rama / tag',
-  graph: 'Gráfico',
-  message: 'Mensaje',
-  author: 'Autor',
-  date: 'Fecha',
+  refs: t('Rama / etiqueta'),
+  graph: t('Gráfico'),
+  message: t('Mensaje'),
+  author: t('Autor'),
+  date: t('Fecha'),
   sha: 'SHA'
 }
 

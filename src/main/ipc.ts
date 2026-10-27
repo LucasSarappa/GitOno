@@ -5,6 +5,7 @@ import {
   IPC,
   type ConfirmOptions,
   type FileSource,
+  type GitIdentity,
   type GitProgress,
   type GraphFilter,
   type OpenTarget,
@@ -15,13 +16,16 @@ import {
   type ProviderInfo,
   type PullMode,
   type ResetMode,
+  type WindowStart,
   type WorkingArea,
   type WorkingFile
 } from '../shared/types'
+import { setLocale, t, type Locale } from '../shared/i18n'
 import { AvatarResolver } from './avatars'
 import { branchesContaining, branchInsight } from './git/branches'
 import * as ops from './git/ops'
 import { commitDetails, compareRefs, fetchAll, listCommits, listRefs, openRepo, searchCode } from './git/repo'
+import { readIdentity, writeIdentity } from './git/identity'
 import { openRepoIn } from './open'
 import { watchRepo } from './git/watch'
 import {
@@ -56,7 +60,7 @@ function handle<Args extends unknown[], R>(channel: string, fn: (...args: Args) 
 }
 
 /** Permite abrir la app directo en un repo: `electron . C:\ruta\al\repo`. */
-function repoPathFromArgs(argv: string[]): string | null {
+export function repoPathFromArgs(argv: string[]): string | null {
   const args = argv.slice(app.isPackaged ? 1 : 2).filter((arg) => !arg.startsWith('-'))
   const last = args.at(-1)
   return last ? resolve(last) : null
@@ -78,22 +82,41 @@ function progressTo(event: IpcMainInvokeEvent, root: string): (progress: GitProg
   }
 }
 
-/** Repos vigilados: uno por pestaña abierta. */
+/** Con qué arrancó cada ventana (por id de su contenido). */
+const windowStarts = new Map<number, WindowStart>()
+
+export function rememberWindowStart(window: BrowserWindow, start: WindowStart): void {
+  const id = window.webContents.id
+  windowStarts.set(id, start)
+  window.webContents.once('destroyed', () => windowStarts.delete(id))
+}
+
+/**
+ * Repos vigilados: uno por pestaña abierta, de cada ventana (dos ventanas pueden tener el mismo
+ * repo). La clave es "id de la ventana|carpeta".
+ */
 const watchers = new Map<string, () => void>()
+const watchKey = (senderId: number, root: string) => `${senderId}|${root}`
 
 let avatars: AvatarResolver | null = null
 
-export function registerIpc(): void {
+/** `openWindow` abre otra ventana (lo pone index.ts, que es quien las crea). */
+export function registerIpc(openWindow: (start: WindowStart) => void): void {
   handle(IPC.pickRepo, async () => {
     const window = BrowserWindow.getFocusedWindow()
-    const options: Electron.OpenDialogOptions = { title: 'Abrir repositorio', properties: ['openDirectory'] }
+    const options: Electron.OpenDialogOptions = { title: t('Abrir repositorio'), properties: ['openDirectory'] }
     const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return null
     return openRepo(result.filePaths[0])
   })
   handle(IPC.openRepo, (path: string) => openRepo(path))
-  handle(IPC.initialRepoPath, async () => repoPathFromArgs(process.argv))
+  handleWithEvent(IPC.windowStart, async (event) => windowStarts.get(event.sender.id) ?? { repoPath: null, restoreTabs: false })
+  handle(IPC.newWindow, async (repoPath: string | null) => openWindow({ repoPath: typeof repoPath === 'string' ? repoPath : null, restoreTabs: false }))
   handle(IPC.listRefs, (root: string) => listRefs(root))
+  handle(IPC.readIdentity, (root: string | null) => readIdentity(root ? String(root) : null))
+  handle(IPC.writeIdentity, (root: string | null, identity: GitIdentity | null) =>
+    writeIdentity(root ? String(root) : null, identity ? { name: String(identity.name), email: String(identity.email) } : null)
+  )
   handleWithEvent(IPC.fetchAll, (event, root: string) => fetchAll(root, progressTo(event, root)))
   handle(IPC.searchCode, (root: string, text: string) => searchCode(root, String(text)))
   handle(IPC.openIn, (root: string, target: OpenTarget) => openRepoIn(root, target))
@@ -153,19 +176,20 @@ export function registerIpc(): void {
     const { name, patch } = await ops.formatPatch(root, sha)
     const window = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.SaveDialogOptions = {
-      title: 'Guardar parche',
+      title: t('Guardar parche'),
       defaultPath: join(app.getPath('downloads'), name),
-      filters: [{ name: 'Parche de Git', extensions: ['patch'] }]
+      filters: [{ name: t('Parche de Git'), extensions: ['patch'] }]
     }
     const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return false
     await writeFile(result.filePath, patch)
     return true
   })
+  handle(IPC.setLocale, async (locale: Locale) => setLocale(locale))
   handle(IPC.copyText, async (text: string) => clipboard.writeText(String(text)))
   handle(IPC.openExternal, async (url: string) => {
     // Solo direcciones web: nunca archivos ni otros protocolos que pudieran ejecutar algo.
-    if (!/^https:\/\//i.test(url)) throw new Error('Solo se pueden abrir direcciones https.')
+    if (!/^https:\/\//i.test(url)) throw new Error(t('Solo se pueden abrir direcciones https.'))
     await shell.openExternal(url)
   })
   handle(IPC.resolveAvatars, async (_root: string, emails: string[], provider: ProviderInfo | null) => {
@@ -187,7 +211,7 @@ export function registerIpc(): void {
       title: options.title,
       message: options.message,
       detail: options.detail,
-      buttons: [options.confirmLabel, 'Cancelar'],
+      buttons: [options.confirmLabel, t('Cancelar')],
       defaultId: 1,
       cancelId: 1,
       noLink: true
@@ -197,25 +221,31 @@ export function registerIpc(): void {
   })
 
   handleWithEvent(IPC.watchRepo, async (event, root: string) => {
-    if (watchers.has(root)) return
     const sender = event.sender
-    if (watchers.size === 0) {
-      // Al cerrar la ventana se dejan de vigilar todos los repos.
+    const key = watchKey(sender.id, root)
+    if (watchers.has(key)) return
+    if (![...watchers.keys()].some((k) => k.startsWith(`${sender.id}|`))) {
+      // Al cerrar la ventana se dejan de vigilar sus repos.
+      const id = sender.id
       sender.once('destroyed', () => {
-        for (const stop of watchers.values()) stop()
-        watchers.clear()
+        for (const [k, stop] of watchers) {
+          if (!k.startsWith(`${id}|`)) continue
+          stop()
+          watchers.delete(k)
+        }
       })
     }
     watchers.set(
-      root,
+      key,
       watchRepo(root, (change) => {
         if (!sender.isDestroyed()) sender.send(IPC.repoChanged, root, change)
       })
     )
   })
-  handle(IPC.unwatchRepo, async (root: string) => {
-    watchers.get(root)?.()
-    watchers.delete(root)
+  handleWithEvent(IPC.unwatchRepo, async (event, root: string) => {
+    const key = watchKey(event.sender.id, root)
+    watchers.get(key)?.()
+    watchers.delete(key)
   })
 }
 

@@ -8,6 +8,8 @@ import { FileTree } from '../components/FileTree'
 import { RefSelect } from '../components/RefSelect'
 import { loadSetting, saveSetting } from '../lib/settings'
 import { buildTree, visibleFiles } from '../lib/tree'
+import { t, tn } from '../../../shared/i18n'
+import { tr } from '../lib/i18n'
 
 type Comparison = { status: 'idle' } | { status: 'loading' } | { status: 'done'; result: CompareResult }
 
@@ -114,18 +116,18 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
   let main: ReactNode
   if (!refB) {
     main = (
-      <EmptyState title="Elegí la rama B">
-        GitOno compara el contenido de A contra B como si fueran dos carpetas, sin cambiarte de rama ni tocar tus archivos.
+      <EmptyState title={t('Elegí la rama B')}>
+        {t('GitOno compara el contenido de A contra B como si fueran dos carpetas, sin cambiarte de rama ni tocar tus archivos.')}
       </EmptyState>
     )
   } else if (refA === refB) {
-    main = <EmptyState title="Elegiste la misma rama en A y en B">Cambiá una de las dos para ver las diferencias.</EmptyState>
+    main = <EmptyState title={t('Elegiste la misma rama en A y en B')}>{t('Cambiá una de las dos para ver las diferencias.')}</EmptyState>
   } else if (comparison.status === 'loading') {
-    main = <EmptyState title="Comparando…" />
+    main = <EmptyState title={t('Comparando…')} />
   } else if (comparison.status === 'done' && files.length === 0) {
     main = (
-      <EmptyState title="No hay diferencias de contenido">
-        Los archivos de {labelFor(refA)} y {labelFor(refB)} son idénticos.
+      <EmptyState title={t('No hay diferencias de contenido')}>
+        {tr('Los archivos de {a} y {b} son idénticos.', { a: labelFor(refA), b: labelFor(refB) })}
       </EmptyState>
     )
   } else if (selected) {
@@ -142,7 +144,7 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
       />
     )
   } else if (comparison.status === 'done') {
-    main = <EmptyState title="Ningún archivo coincide con el filtro" />
+    main = <EmptyState title={t('Ningún archivo coincide con el filtro')} />
   }
 
   return (
@@ -151,8 +153,8 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
         <RefSelect label="A" refs={refs} value={refA} onChange={setRefA} />
         <button
           className="btn btn--icon"
-          title="Intercambiar A y B"
-          aria-label="Intercambiar A y B"
+          title={t('Intercambiar A y B')}
+          aria-label={t('Intercambiar A y B')}
           disabled={!refA || !refB}
           onClick={() => {
             setRefA(refB)
@@ -170,7 +172,7 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
           <input
             className="field compare__filter"
             type="search"
-            placeholder="Filtrar archivos…"
+            placeholder={t('Filtrar archivos…')}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             disabled={files.length === 0}
@@ -192,10 +194,6 @@ export function CompareView({ repo, refs, reloadKey, options, onOptionsChange, o
   )
 }
 
-function plural(n: number, singular: string, pluralForm: string): string {
-  return `${n} ${n === 1 ? singular : pluralForm}`
-}
-
 function Summary({ result }: { result: CompareResult }) {
   let additions = 0
   let deletions = 0
@@ -206,12 +204,12 @@ function Summary({ result }: { result: CompareResult }) {
   return (
     <div className="summary">
       <div>
-        <strong>{plural(result.files.length, 'archivo', 'archivos')}</strong>{' '}
+        <strong>{tn(result.files.length, '{n} archivo', '{n} archivos')}</strong>{' '}
         <span className="added">+{additions}</span> <span className="deleted">−{deletions}</span>
       </div>
       <div className="text-2 small">
-        B tiene {plural(result.commitsOnlyInB, 'commit', 'commits')} que A no tiene · A tiene{' '}
-        {plural(result.commitsOnlyInA, 'commit', 'commits')} que B no tiene
+        {tn(result.commitsOnlyInB, 'B tiene {n} commit que A no tiene', 'B tiene {n} commits que A no tiene')} ·{' '}
+        {tn(result.commitsOnlyInA, 'A tiene {n} commit que B no tiene', 'A tiene {n} commits que B no tiene')}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { t } from '../../shared/i18n'
 
 export class GitError extends Error {
   constructor(
@@ -45,7 +46,7 @@ export function git(cwd: string, args: string[], options: RunOptions = {}): Prom
       (error, stdout, stderr) => {
         if (!error) return resolve(stdout)
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          return reject(new GitError('No se encontró Git. Instalá Git (https://git-scm.com) y volvé a abrir la app.'))
+          return reject(new GitError(t('No se encontró Git. Instalá Git (https://git-scm.com) y volvé a abrir la app.')))
         }
         // Algunos comandos (como commit sin cambios) explican el error por la salida normal.
         const text = stderr.toString('utf8').trim() || stdout.toString('utf8').trim()
@@ -65,6 +66,6 @@ export async function gitText(cwd: string, args: string[], options?: RunOptions)
 /** Evita que un nombre de rama se interprete como opción de Git (ej. "--output=..."). */
 export function assertSafeRef(ref: string): void {
   if (!ref || ref.startsWith('-') || /[\0\n\r]/.test(ref)) {
-    throw new GitError(`Referencia inválida: "${ref}"`)
+    throw new GitError(t('Referencia inválida: "{ref}"', { ref }))
   }
 }

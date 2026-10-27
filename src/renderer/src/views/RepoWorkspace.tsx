@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   Archive,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -38,6 +39,7 @@ import { loadSetting, saveSetting } from '../lib/settings'
 import { CompareView, type CompareRequest } from './CompareView'
 import { HistoryView, type ShowRequest, type ShowTarget } from './HistoryView'
 import { PULL_MODES, shortRef, useRepoActions } from './useRepoActions'
+import { t, tn } from '../../../shared/i18n'
 
 type View = 'history' | 'compare'
 
@@ -45,31 +47,32 @@ const DEFAULT_OPTIONS: DiffOptions = { sideBySide: true, ignoreWhitespace: false
 const NO_FILTER: GraphFilter = { hidden: [], solo: [] }
 
 const AUTO_FETCH = [
-  { minutes: 0, label: 'Apagado' },
-  { minutes: 5, label: 'Cada 5 minutos' },
-  { minutes: 15, label: 'Cada 15 minutos' },
-  { minutes: 30, label: 'Cada 30 minutos' }
+  { minutes: 0, label: t('Apagado') },
+  { minutes: 5, label: t('Cada 5 minutos') },
+  { minutes: 15, label: t('Cada 15 minutos') },
+  { minutes: 30, label: t('Cada 30 minutos') }
 ]
 
 const SHORTCUTS: [string, string][] = [
-  ['Ctrl+P', 'Paleta de comandos: todo lo que se puede hacer, buscando'],
-  ['Ctrl+F', 'Buscar commits'],
-  ['Ctrl+Z', 'Deshacer la última operación'],
-  ['Ctrl+Y', 'Rehacer'],
-  ['Ctrl+K', 'Mostrar u ocultar el panel de ramas'],
-  ['Ctrl+J', 'Mostrar u ocultar el panel de detalle'],
-  ['Ctrl+T', 'Pestaña nueva'],
-  ['Ctrl+W', 'Cerrar la pestaña'],
-  ['Ctrl+Tab', 'Pasar a la pestaña siguiente'],
-  ['Ctrl+O', 'Abrir un repo'],
-  ['Ctrl+= Ctrl+−', 'Agrandar y achicar (Ctrl+0 vuelve a 100 %)'],
-  ['↑ ↓', 'Moverse por los commits'],
-  ['Shift+F10', 'Menú del commit elegido (también la tecla Menú)'],
-  ['Ctrl+Enter', 'Hacer el commit, desde la caja de mensaje'],
-  ['Esc', 'Volver del diff, cerrar un menú o dejar de resaltar una rama']
+  ['Ctrl+P', t('Paleta de comandos: todo lo que se puede hacer, buscando')],
+  ['Ctrl+F', t('Buscar commits')],
+  ['Ctrl+Z', t('Deshacer la última operación')],
+  ['Ctrl+Y', t('Rehacer')],
+  ['Ctrl+K', t('Mostrar u ocultar el panel de ramas')],
+  ['Ctrl+J', t('Mostrar u ocultar el panel de detalle')],
+  ['Ctrl+T', t('Pestaña nueva')],
+  ['Ctrl+W', t('Cerrar la pestaña')],
+  ['Ctrl+Tab', t('Pasar a la pestaña siguiente')],
+  ['Ctrl+O', t('Abrir un repo')],
+  ['Ctrl+Shift+N', t('Ventana nueva, para tener otro repo al lado')],
+  ['Ctrl+= Ctrl+−', t('Agrandar y achicar (Ctrl+0 vuelve a 100 %)')],
+  ['↑ ↓', t('Moverse por los commits')],
+  ['Shift+F10', t('Menú del commit elegido (también la tecla Menú)')],
+  ['Ctrl+Enter', t('Hacer el commit, desde la caja de mensaje')],
+  ['Esc', t('Volver del diff, cerrar un menú o dejar de resaltar una rama')]
 ]
 
-const OPERATION_NAMES = { merge: 'Merge', rebase: 'Rebase', 'cherry-pick': 'Cherry-pick', revert: 'Revert' }
+const OPERATION_NAMES = { merge: t('Fusión'), rebase: t('Rebase'), 'cherry-pick': t('Cherry-pick'), revert: t('Reversión') }
 
 interface Props {
   repo: RepoInfo
@@ -202,10 +205,10 @@ export function RepoWorkspace({ repo, active }: Props) {
 
   const openPullMenu = () => {
     const items: MenuItem[] = [
-      { label: 'Traer novedades de todos los remotos (fetch)', icon: ArrowDownToLine, onSelect: actions.fetchAll },
+      { label: t('Actualizar: traer novedades de todos los remotos'), icon: ArrowDownToLine, onSelect: actions.fetchAll },
       {
         kind: 'submenu',
-        label: 'Fetch automático',
+        label: t('Actualizar automáticamente'),
         icon: Timer,
         items: AUTO_FETCH.map(({ minutes, label }): MenuItem => ({
           kind: 'check',
@@ -219,7 +222,7 @@ export function RepoWorkspace({ repo, active }: Props) {
       { kind: 'separator' },
       {
         kind: 'submenu',
-        label: 'Al tocar Pull',
+        label: t('Al tocar Traer'),
         items: PULL_MODES.map(({ mode, label }): MenuItem => ({ kind: 'check', label, checked: actions.pullMode === mode, onSelect: () => actions.setPullMode(mode) }))
       }
     ]
@@ -229,16 +232,17 @@ export function RepoWorkspace({ repo, active }: Props) {
   const openRepoMenu = (at: DOMRect) =>
     menu.open(at, [
       { kind: 'label', label: root },
-      { label: 'Abrir la carpeta', icon: FolderOpen, onSelect: () => actions.openIn('folder') },
-      { label: 'Abrir una terminal acá', icon: SquareTerminal, onSelect: () => actions.openIn('terminal') },
-      { label: 'Abrir en VS Code', icon: Code, onSelect: () => actions.openIn('editor') },
+      { label: t('Abrir la carpeta'), icon: FolderOpen, onSelect: () => actions.openIn('folder') },
+      { label: t('Abrir una terminal acá'), icon: SquareTerminal, onSelect: () => actions.openIn('terminal') },
+      { label: t('Abrir en VS Code'), icon: Code, onSelect: () => actions.openIn('editor') },
       { kind: 'separator' },
-      { label: 'Copiar la ruta', onSelect: () => void api.copyText(root) }
+      { label: t('Abrir en una ventana nueva'), icon: AppWindow, hint: 'Ctrl+Shift+N', onSelect: () => void api.newWindow(root) },
+      { label: t('Copiar la ruta'), onSelect: () => void api.copyText(root) }
     ])
 
   const showShortcuts = () =>
     void dialog.show({
-      title: 'Atajos de teclado',
+      title: t('Atajos de teclado'),
       description: (
         <dl className="shortcuts">
           {SHORTCUTS.map(([keys, what]) => (
@@ -253,7 +257,7 @@ export function RepoWorkspace({ repo, active }: Props) {
           ))}
         </dl>
       ),
-      confirmLabel: 'Listo'
+      confirmLabel: t('Listo')
     })
 
   // Ctrl+P (o Ctrl+Shift+P) abre la paleta de comandos de la pestaña visible.
@@ -270,69 +274,71 @@ export function RepoWorkspace({ repo, active }: Props) {
 
   const commands = (): Command[] => {
     const list: Command[] = [
-      { id: 'pull', group: 'Git', label: 'Pull', icon: ArrowDownToLine, run: () => actions.pull() },
+      { id: 'pull', group: 'Git', label: t('Traer'), icon: ArrowDownToLine, run: () => actions.pull() },
       ...PULL_MODES.map((m): Command => ({ id: `pull-${m.mode}`, group: 'Git', label: m.label, icon: ArrowDownToLine, run: () => actions.pull(m.mode) })),
-      { id: 'fetch', group: 'Git', label: 'Fetch: traer novedades de todos los remotos', icon: ArrowDownToLine, run: actions.fetchAll },
-      ...(refs?.current ? [{ id: 'push', group: 'Git', label: 'Push', icon: ArrowUpFromLine, run: () => actions.push(refs.current!) }] : []),
-      ...(refs?.head ? [{ id: 'branch', group: 'Git', label: 'Crear una rama', icon: GitBranchPlus, run: () => void actions.createBranchAt(refs.head!, currentBranch ?? 'el commit actual') }] : []),
-      { id: 'stash', group: 'Git', label: 'Guardar los cambios en un stash', icon: Archive, run: () => void actions.stashChanges() },
-      ...(actions.latestStash ? [{ id: 'pop', group: 'Git', label: 'Pop: aplicar y borrar el último stash', icon: PackageOpen, run: () => actions.applyStash(actions.latestStash!, true) }] : []),
-      ...(actions.undoLabel ? [{ id: 'undo', group: 'Git', label: `Deshacer: ${actions.undoLabel}`, icon: Undo2, hint: 'Ctrl+Z', run: actions.undo }] : []),
-      ...(actions.redoLabel ? [{ id: 'redo', group: 'Git', label: `Rehacer: ${actions.redoLabel}`, icon: Redo2, hint: 'Ctrl+Y', run: actions.redo }] : []),
-      { id: 'view-history', group: 'Vista', label: 'Historial', icon: History, run: () => setView('history') },
-      { id: 'view-compare', group: 'Vista', label: 'Comparar ramas', icon: GitCompareArrows, run: () => setView('compare') },
-      { id: 'open-folder', group: 'Abrir', label: 'Abrir la carpeta del repo', icon: FolderOpen, run: () => actions.openIn('folder') },
-      { id: 'open-terminal', group: 'Abrir', label: 'Abrir una terminal en el repo', icon: SquareTerminal, run: () => actions.openIn('terminal') },
-      { id: 'open-editor', group: 'Abrir', label: 'Abrir el repo en VS Code', icon: Code, run: () => actions.openIn('editor') },
-      ...PALETTES.map((p): Command => ({ id: `theme-${p.id}`, group: 'Tema', label: `${p.name} (${p.kind === 'dark' ? 'oscuro' : 'claro'})`, icon: Palette, run: () => choosePalette(p.id) })),
-      { id: 'mode-system', group: 'Tema', label: 'Seguir el modo del sistema', icon: Palette, run: () => updateAppearance({ theme: 'system' }) },
-      { id: 'zoom-in', group: 'Zoom', label: 'Agrandar', icon: ZoomIn, hint: 'Ctrl +', run: () => zoomBy(1) },
-      { id: 'zoom-out', group: 'Zoom', label: 'Achicar', icon: ZoomIn, hint: 'Ctrl −', run: () => zoomBy(-1) },
-      { id: 'zoom-reset', group: 'Zoom', label: 'Volver a 100 %', icon: ZoomIn, hint: 'Ctrl 0', run: () => zoomBy(0) },
-      { id: 'shortcuts', group: 'Ayuda', label: 'Atajos de teclado', icon: Keyboard, run: showShortcuts }
+      { id: 'fetch', group: 'Git', label: t('Actualizar: traer novedades de todos los remotos'), icon: ArrowDownToLine, run: actions.fetchAll },
+      ...(refs?.current ? [{ id: 'push', group: 'Git', label: t('Subir'), icon: ArrowUpFromLine, run: () => actions.push(refs.current!) }] : []),
+      ...(refs?.head ? [{ id: 'branch', group: 'Git', label: t('Crear una rama'), icon: GitBranchPlus, run: () => void actions.createBranchAt(refs.head!, currentBranch ?? t('el commit actual')) }] : []),
+      { id: 'stash', group: 'Git', label: t('Guardar los cambios aparte'), icon: Archive, run: () => void actions.stashChanges() },
+      ...(actions.latestStash ? [{ id: 'pop', group: 'Git', label: t('Recuperar: aplicar y borrar lo último guardado'), icon: PackageOpen, run: () => actions.applyStash(actions.latestStash!, true) }] : []),
+      ...(actions.undoLabel ? [{ id: 'undo', group: 'Git', label: t('Deshacer: {undoLabel}', { undoLabel: actions.undoLabel }), icon: Undo2, hint: 'Ctrl+Z', run: actions.undo }] : []),
+      ...(actions.redoLabel ? [{ id: 'redo', group: 'Git', label: t('Rehacer: {redoLabel}', { redoLabel: actions.redoLabel }), icon: Redo2, hint: 'Ctrl+Y', run: actions.redo }] : []),
+      { id: 'view-history', group: t('Vista'), label: t('Historial'), icon: History, run: () => setView('history') },
+      { id: 'view-compare', group: t('Vista'), label: t('Comparar ramas'), icon: GitCompareArrows, run: () => setView('compare') },
+      { id: 'open-folder', group: t('Abrir'), label: t('Abrir la carpeta del repo'), icon: FolderOpen, run: () => actions.openIn('folder') },
+      { id: 'open-terminal', group: t('Abrir'), label: t('Abrir una terminal en el repo'), icon: SquareTerminal, run: () => actions.openIn('terminal') },
+      { id: 'open-editor', group: t('Abrir'), label: t('Abrir el repo en VS Code'), icon: Code, run: () => actions.openIn('editor') },
+      { id: 'new-window', group: t('Abrir'), label: t('Ventana nueva, para tener otro repo al lado'), icon: AppWindow, hint: 'Ctrl+Shift+N', run: () => void api.newWindow(null) },
+      { id: 'repo-new-window', group: t('Abrir'), label: t('Abrir este repo en una ventana nueva'), icon: AppWindow, run: () => void api.newWindow(root) },
+      ...PALETTES.map((p): Command => ({ id: `theme-${p.id}`, group: t('Tema'), label: `${p.name} (${p.kind === 'dark' ? t('oscuro') : t('claro')})`, icon: Palette, run: () => choosePalette(p.id) })),
+      { id: 'mode-system', group: t('Tema'), label: t('Seguir el modo del sistema'), icon: Palette, run: () => updateAppearance({ theme: 'system' }) },
+      { id: 'zoom-in', group: t('Zoom'), label: t('Agrandar'), icon: ZoomIn, hint: 'Ctrl +', run: () => zoomBy(1) },
+      { id: 'zoom-out', group: t('Zoom'), label: t('Achicar'), icon: ZoomIn, hint: 'Ctrl −', run: () => zoomBy(-1) },
+      { id: 'zoom-reset', group: t('Zoom'), label: t('Volver a 100 %'), icon: ZoomIn, hint: 'Ctrl 0', run: () => zoomBy(0) },
+      { id: 'shortcuts', group: t('Ayuda'), label: t('Atajos de teclado'), icon: Keyboard, run: showShortcuts }
     ]
     for (const ref of refs?.refs ?? []) {
       if (ref.kind === 'tag') continue
       if (ref.ref !== refs?.current) {
-        list.push({ id: `checkout-${ref.ref}`, group: 'Checkout', label: ref.name, icon: LogIn, run: () => actions.checkout(ref.ref) })
+        list.push({ id: `checkout-${ref.ref}`, group: t('Cambiar a'), label: ref.name, icon: LogIn, run: () => actions.checkout(ref.ref) })
       }
-      list.push({ id: `show-${ref.ref}`, group: 'Ver rama', label: ref.name, icon: GitBranch, run: () => show({ kind: 'branch', ref: ref.ref }) })
+      list.push({ id: `show-${ref.ref}`, group: t('Ver rama'), label: ref.name, icon: GitBranch, run: () => show({ kind: 'branch', ref: ref.ref }) })
     }
     return list
   }
 
   const pullTitle = PULL_MODES.find((m) => m.mode === actions.pullMode)
-  const upstreamText = status?.upstream ? `Sigue a ${status.upstream}` : 'La rama no sigue ninguna rama remota'
+  const upstreamText = status?.upstream ? t('Sigue a {upstream}', { upstream: status.upstream }) : t('La rama no sigue ninguna rama remota')
 
   return (
     <AvatarProvider root={root} provider={repo.provider}>
       <div className="workspace">
         <header className="toolbar glass">
           <div className="toolbar__repo">
-            <button className="toolbar__name" title={`${root}\nClic: abrir la carpeta, una terminal o VS Code`} onClick={(e) => openRepoMenu(e.currentTarget.getBoundingClientRect())}>
+            <button className="toolbar__name" title={t('{root}\nClic: abrir la carpeta, una terminal o VS Code', { root })} onClick={(e) => openRepoMenu(e.currentTarget.getBoundingClientRect())}>
               {repo.name}
             </button>
             <ProviderBadge provider={repo.provider} remoteUrl={repo.remoteUrl} />
           </div>
           {refs && (
-            <span className="branch-chip" title={currentBranch ? `Rama actual: ${currentBranch}. ${upstreamText}.` : 'HEAD desacoplado'}>
+            <span className="branch-chip" title={currentBranch ? t('Rama actual: {currentBranch}. {upstreamText}.', { currentBranch, upstreamText }) : t('HEAD desacoplado')}>
               <GitBranch size={14} strokeWidth={1.75} aria-hidden />
-              <span className="branch-chip__name">{currentBranch ?? 'HEAD desacoplado'}</span>
+              <span className="branch-chip__name">{currentBranch ?? t('HEAD desacoplado')}</span>
             </span>
           )}
 
-          <div className="toolbar__actions" role="toolbar" aria-label="Operaciones">
+          <div className="toolbar__actions" role="toolbar" aria-label={t('Operaciones')}>
             <ToolButton
               icon={Undo2}
-              label="Deshacer"
-              title={actions.undoLabel ? `Deshacer: ${actions.undoLabel} (Ctrl+Z)` : 'Nada para deshacer'}
+              label={t('Deshacer')}
+              title={actions.undoLabel ? t('Deshacer: {undoLabel} (Ctrl+Z)', { undoLabel: actions.undoLabel }) : t('Nada para deshacer')}
               disabled={busy || !actions.undoLabel}
               onClick={actions.undo}
             />
             <ToolButton
               icon={Redo2}
-              label="Rehacer"
-              title={actions.redoLabel ? `Rehacer: ${actions.redoLabel} (Ctrl+Y)` : 'Nada para rehacer'}
+              label={t('Rehacer')}
+              title={actions.redoLabel ? t('Rehacer: {redoLabel} (Ctrl+Y)', { redoLabel: actions.redoLabel }) : t('Nada para rehacer')}
               disabled={busy || !actions.redoLabel}
               onClick={actions.redo}
             />
@@ -340,17 +346,17 @@ export function RepoWorkspace({ repo, active }: Props) {
             <div className="split-button">
               <ToolButton
                 icon={ArrowDownToLine}
-                label="Pull"
+                label={t('Traer')}
                 count={status?.behind}
-                title={`${pullTitle?.label ?? 'Pull'}: ${pullTitle?.detail ?? ''} ${upstreamText}.`}
+                title={`${pullTitle?.label ?? t('Traer')}: ${pullTitle?.detail ?? ''} ${upstreamText}.`}
                 disabled={busy || !refs?.current}
                 onClick={() => actions.pull()}
               />
               <button
                 ref={pullMenuButton}
                 className="btn btn--ghost btn--icon split-button__more"
-                aria-label="Opciones de pull"
-                title="Fetch y otras formas de pull"
+                aria-label={t('Opciones de Traer')}
+                title={t('Actualizar y otras formas de traer')}
                 disabled={busy}
                 onClick={openPullMenu}
               >
@@ -359,31 +365,31 @@ export function RepoWorkspace({ repo, active }: Props) {
             </div>
             <ToolButton
               icon={ArrowUpFromLine}
-              label="Push"
+              label={t('Subir')}
               count={status?.ahead}
-              title={refs?.current ? (status?.upstream ? `Subir ${currentBranch} a ${status.upstream}` : `Publicar ${currentBranch} en el servidor`) : 'Hacé checkout de una rama para subirla'}
+              title={refs?.current ? (status?.upstream ? t('Subir {currentBranch} a {upstream}', { currentBranch, upstream: status.upstream }) : t('Publicar {currentBranch} en el servidor', { currentBranch })) : t('Cambiá a una rama para subirla')}
               disabled={busy || !refs?.current || remotes.length === 0}
               onClick={() => refs?.current && actions.push(refs.current)}
             />
             <span className="toolbar__divider" aria-hidden />
             <ToolButton
               icon={GitBranchPlus}
-              label="Rama"
-              title="Crear una rama desde el commit actual"
+              label={t('Rama')}
+              title={t('Crear una rama desde el commit actual')}
               disabled={busy || !refs?.head}
-              onClick={() => refs?.head && void actions.createBranchAt(refs.head, currentBranch ?? 'el commit actual')}
+              onClick={() => refs?.head && void actions.createBranchAt(refs.head, currentBranch ?? t('el commit actual'))}
             />
             <ToolButton
               icon={Archive}
-              label="Stash"
-              title={actions.hasChanges ? 'Guardar los cambios sin commitear en un stash' : 'No hay cambios para guardar'}
+              label={t('Guardar aparte')}
+              title={actions.hasChanges ? t('Guardar aparte los cambios sin commitear') : t('No hay cambios para guardar')}
               disabled={busy || !actions.hasChanges}
               onClick={() => void actions.stashChanges()}
             />
             <ToolButton
               icon={PackageOpen}
-              label="Pop"
-              title={actions.latestStash ? `Aplicar y borrar el último stash: "${actions.latestStash.message}"` : 'No hay stashes guardados'}
+              label={t('Recuperar')}
+              title={actions.latestStash ? t('Aplicar y borrar lo último guardado: "{message}"', { message: actions.latestStash.message }) : t('No hay cambios guardados')}
               disabled={busy || !actions.latestStash}
               onClick={() => actions.latestStash && actions.applyStash(actions.latestStash, true)}
             />
@@ -393,7 +399,7 @@ export function RepoWorkspace({ repo, active }: Props) {
                 {actions.busy}
                 {actions.progress && (
                   <span className="toolbar__progress">
-                    {actions.progress.phase} {actions.progress.percent} %
+                    {t(actions.progress.phase)} {actions.progress.percent} %
                     <span className="toolbar__progress-bar" aria-hidden>
                       <span style={{ width: `${actions.progress.percent}%` }} />
                     </span>
@@ -405,7 +411,7 @@ export function RepoWorkspace({ repo, active }: Props) {
 
           <div className="toolbar__search" ref={setSearchSlot} />
 
-          <div className="segmented toolbar__views" role="tablist" aria-label="Vista">
+          <div className="segmented toolbar__views" role="tablist" aria-label={t('Vista')}>
             <button
               role="tab"
               aria-selected={view === 'history'}
@@ -413,7 +419,7 @@ export function RepoWorkspace({ repo, active }: Props) {
               onClick={() => setView('history')}
             >
               <History size={14} strokeWidth={1.75} aria-hidden />
-              Historial
+              {t('Historial')}
             </button>
             <button
               role="tab"
@@ -422,11 +428,11 @@ export function RepoWorkspace({ repo, active }: Props) {
               onClick={() => setView('compare')}
             >
               <GitCompareArrows size={14} strokeWidth={1.75} aria-hidden />
-              Comparar
+              {t('Comparar')}
             </button>
           </div>
           <div className="toolbar__end">
-            <button className="btn btn--icon btn--ghost" aria-label="Paleta de comandos" title="Paleta de comandos (Ctrl+P)" onClick={() => setPaletteOpen(true)}>
+            <button className="btn btn--icon btn--ghost" aria-label={t('Paleta de comandos')} title={t('Paleta de comandos (Ctrl+P)')} onClick={() => setPaletteOpen(true)}>
               <CommandIcon size={16} strokeWidth={1.75} />
             </button>
             <AppearanceMenu />
@@ -437,29 +443,31 @@ export function RepoWorkspace({ repo, active }: Props) {
           <div className="banner banner--warning" role="status">
             <TriangleAlert size={15} strokeWidth={1.75} aria-hidden />
             <span>
-              {operation ? `${OPERATION_NAMES[operation]} a medio hacer. ` : ''}
+              {operation ? t('{value} a medio hacer. ', { value: OPERATION_NAMES[operation] }) : ''}
               {conflicted > 0
-                ? `${conflicted === 1 ? 'Hay 1 archivo' : `Hay ${conflicted} archivos`} con conflictos: resolvelos en tu editor y preparalos${operation ? ' para continuar' : ''}.`
-                : 'Ya no quedan conflictos: tocá Continuar para terminar.'}
+                ? operation
+                  ? tn(conflicted, 'Hay {n} archivo con conflictos: resolvelo en tu editor y preparalo para continuar.', 'Hay {n} archivos con conflictos: resolvelos en tu editor y preparalos para continuar.')
+                  : tn(conflicted, 'Hay {n} archivo con conflictos: resolvelo en tu editor y preparalo.', 'Hay {n} archivos con conflictos: resolvelos en tu editor y preparalos.')
+                : t('Ya no quedan conflictos: tocá Continuar para terminar.')}
             </span>
             <span className="banner__actions">
               {conflicted > 0 && (
                 <button className="btn btn--sm" onClick={() => show({ kind: 'wip' })}>
-                  Ver archivos
+                  {t('Ver archivos')}
                 </button>
               )}
               {operation && (
                 <>
                   <button className="btn btn--sm" disabled={busy} onClick={() => void actions.abortOperation()}>
-                    Abortar
+                    {t('Abortar')}
                   </button>
                   <button
                     className="btn btn--sm btn--primary"
                     disabled={busy || conflicted > 0}
-                    title={conflicted > 0 ? 'Primero resolvé y prepará los archivos con conflictos' : undefined}
+                    title={conflicted > 0 ? t('Primero resolvé y prepará los archivos con conflictos') : undefined}
                     onClick={actions.continueOperation}
                   >
-                    Continuar
+                    {t('Continuar')}
                   </button>
                 </>
               )}
@@ -470,7 +478,7 @@ export function RepoWorkspace({ repo, active }: Props) {
         {error && (
           <div className="banner banner--error" role="alert">
             <span>{error}</span>
-            <button className="btn btn--icon btn--ghost" aria-label="Cerrar aviso" onClick={() => setError(null)}>
+            <button className="btn btn--icon btn--ghost" aria-label={t('Cerrar aviso')} onClick={() => setError(null)}>
               <X size={14} strokeWidth={1.75} />
             </button>
           </div>
@@ -525,10 +533,10 @@ export function RepoWorkspace({ repo, active }: Props) {
             <span>{actions.toast.message}</span>
             {actions.toast.undoable && (
               <button className="btn btn--sm" disabled={busy} onClick={actions.undo}>
-                Deshacer
+                {t('Deshacer')}
               </button>
             )}
-            <button className="btn btn--icon btn--ghost" aria-label="Cerrar aviso" onClick={actions.dismissToast}>
+            <button className="btn btn--icon btn--ghost" aria-label={t('Cerrar aviso')} onClick={actions.dismissToast}>
               <X size={14} strokeWidth={1.75} />
             </button>
           </div>
@@ -564,10 +572,10 @@ function ProviderBadge({ provider, remoteUrl }: { provider: ProviderInfo | null;
     // Un remoto que es una carpeta (otro clon en el disco) no tiene plataforma.
     return remoteUrl ? (
       <span className="badge" title={remoteUrl}>
-        Remoto local
+        {t('Remoto local')}
       </span>
     ) : (
-      <span className="badge">Sin remoto</span>
+      <span className="badge">{t('Sin remoto')}</span>
     )
   }
   return (

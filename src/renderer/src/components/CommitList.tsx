@@ -13,7 +13,7 @@ import {
   type ReactNode
 } from 'react'
 import { createPortal } from 'react-dom'
-import type { CommitInfo } from '../../../shared/types'
+import type { CommitInfo, StashInfo } from '../../../shared/types'
 import { clampWidth, COLUMN_LABELS, gridTemplate, layoutColumns, MOVABLE, moveColumn, type ColumnId, type ColumnsConfig } from '../lib/columns'
 import { absoluteDate, relativeDate, shortSha } from '../lib/format'
 import { childrenOf, nearestBranch } from '../lib/ghost'
@@ -21,6 +21,7 @@ import type { Graph } from '../lib/graph'
 import type { RefLabel } from '../lib/refs'
 import { Avatar } from './Avatar'
 import { CommitGraphCell, GRAPH_PAD, LANE_WIDTH, LANE_WIDTH_AVATARS, laneColor, laneX, ROW_HEIGHT } from './CommitGraphCell'
+import { t, tn } from '../../../shared/i18n'
 
 const HEADER_HEIGHT = 30
 const MAX_VISIBLE_LANES = 20
@@ -90,6 +91,8 @@ interface Props extends PillHandlers {
   scrollRequest: ScrollRequest | null
   /** Resumen de la fila de cambios sin commitear, si está en la lista. */
   wip: WipSummary | null
+  /** Stashes, por SHA: sus filas se dibujan con una caja y sin autor. */
+  stashes: ReadonlyMap<string, StashInfo>
   columns: ColumnsConfig
   /** Los nodos del gráfico son la foto del autor. */
   graphAvatars: boolean
@@ -107,7 +110,7 @@ interface Props extends PillHandlers {
  * grandes (decenas de miles de commits) se mueve igual de rápido.
  */
 export function CommitList(props: Props) {
-  const { commits, graph, labels, head, selectedSha, matches, lineage, selectedRef, scrollRequest, wip, columns, graphAvatars } = props
+  const { commits, graph, labels, head, selectedSha, matches, lineage, selectedRef, scrollRequest, wip, stashes, columns, graphAvatars } = props
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
@@ -144,14 +147,14 @@ export function CommitList(props: Props) {
   }, [end, commits.length, props.onNearEnd])
 
   // Para la rama fantasma: hijos de cada commit y su carril.
-  const children = useMemo(() => childrenOf(commits.filter((c) => c.sha !== WIP_SHA)), [commits])
+  const children = useMemo(() => childrenOf(commits.filter((c) => c.sha !== WIP_SHA && !stashes.has(c.sha))), [commits, stashes])
   const indexBySha = useMemo(() => new Map(commits.map((c, i) => [c.sha, i])), [commits])
   const columnOf = (sha: string) => {
     const index = indexBySha.get(sha)
     return index === undefined ? undefined : graph.rows[index]?.column
   }
   const ghostFor = (sha: string): RefLabel | null => {
-    if (sha === WIP_SHA || labels.get(sha)?.some((l) => l.kind === 'local' || l.kind === 'remote')) return null
+    if (sha === WIP_SHA || stashes.has(sha) || labels.get(sha)?.some((l) => l.kind === 'local' || l.kind === 'remote')) return null
     return nearestBranch(sha, children, labels, columnOf)
   }
 
@@ -212,15 +215,16 @@ export function CommitList(props: Props) {
     const row = graph.rows[index]
     const selected = commit.sha === selectedSha
     const inLineage = lineage?.highlight.has(commit.sha) ?? false
+    const stash = stashes.get(commit.sha)
     const dimmed =
-      commit.sha !== WIP_SHA && ((matches !== null && !matches.has(commit.sha)) || (lineage !== null && !inLineage))
+      commit.sha !== WIP_SHA && !stash && ((matches !== null && !matches.has(commit.sha)) || (lineage !== null && !inLineage))
     const classes = ['commit-row', selected && 'commit-row--selected', dimmed && 'commit-row--dimmed', inLineage && 'commit-row--lineage']
     const style = { transform: `translateY(${index * ROW_HEIGHT}px)`, gridTemplateColumns: template }
     const isWip = commit.sha === WIP_SHA && wip !== null
     const isMerge = !isWip && commit.parents.length > 1
     const refLabels = isWip ? undefined : labels.get(commit.sha)
     const marker = lineage?.markers.get(commit.sha)
-    const avatarNode = graphAvatars && !isWip && !isMerge
+    const avatarNode = graphAvatars && !isWip && !stash && !isMerge
     // La rama fantasma solo se busca para la fila con el mouse encima y la elegida.
     const ghost = refsVisible && (commit.sha === hoverSha || selected) ? ghostFor(commit.sha) : null
 
@@ -242,6 +246,7 @@ export function CommitList(props: Props) {
             isHead={!isWip && commit.sha === head}
             isMerge={isMerge}
             isVirtual={isWip}
+            isStash={Boolean(stash)}
             avatarNode={avatarNode}
             hasRefs={Boolean(refLabels) && refsVisible}
             emphasized={inLineage}
@@ -259,6 +264,12 @@ export function CommitList(props: Props) {
             <span className="commit-row__wip">// WIP</span>
             <WipCounts wip={wip!} />
           </div>
+        ) : stash ? (
+          <div key="message" className="commit-row__message">
+            <span className="commit-row__stash" title={t('Cambios guardados: stash@{{index}}', { index: stash.index })}>
+              {stash.message}
+            </span>
+          </div>
         ) : (
           <div key="message" className="commit-row__message">
             {marker && (
@@ -274,7 +285,7 @@ export function CommitList(props: Props) {
         ),
       author: () => (
         <div key="author" className="commit-row__author">
-          {!isWip && (
+          {!isWip && !stash && (
             <>
               <Avatar name={commit.authorName} email={commit.authorEmail} size={20} />
               <span>{commit.authorName}</span>
@@ -298,7 +309,7 @@ export function CommitList(props: Props) {
       <div
         key={commit.sha}
         data-sha={commit.sha}
-        className={[...classes, isWip && 'commit-row--wip'].filter(Boolean).join(' ')}
+        className={[...classes, isWip && 'commit-row--wip', stash && 'commit-row--stash'].filter(Boolean).join(' ')}
         style={style}
         onClick={() => props.onSelect(commit.sha, false)}
         onContextMenu={rowMenu(commit.sha)}
@@ -317,7 +328,7 @@ export function CommitList(props: Props) {
       className="commit-list"
       tabIndex={0}
       role="grid"
-      aria-label="Historial de commits"
+      aria-label={t('Historial de commits')}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       onMouseLeave={() => setHoverSha(null)}
       onKeyDown={onKeyDown}
@@ -333,11 +344,11 @@ export function CommitList(props: Props) {
 /** Íconos con la cantidad de archivos por tipo de cambio, como en GitKraken. */
 function WipCounts({ wip }: { wip: WipSummary }) {
   const items: { count: number; kind: string; Icon: typeof Plus; label: string }[] = [
-    { count: wip.conflicted, kind: 'conflict', Icon: TriangleAlert, label: 'con conflictos' },
-    { count: wip.modified, kind: 'modified', Icon: Pencil, label: 'modificados' },
-    { count: wip.added, kind: 'added', Icon: Plus, label: 'nuevos' },
-    { count: wip.deleted, kind: 'deleted', Icon: Minus, label: 'borrados' },
-    { count: wip.renamed, kind: 'renamed', Icon: ArrowRight, label: 'renombrados' }
+    { count: wip.conflicted, kind: 'conflict', Icon: TriangleAlert, label: t('con conflictos') },
+    { count: wip.modified, kind: 'modified', Icon: Pencil, label: t('modificados') },
+    { count: wip.added, kind: 'added', Icon: Plus, label: t('nuevos') },
+    { count: wip.deleted, kind: 'deleted', Icon: Minus, label: t('borrados') },
+    { count: wip.renamed, kind: 'renamed', Icon: ArrowRight, label: t('renombrados') }
   ]
   return (
     <span className="wip-counts" title={wipSummary(wip)} aria-label={wipSummary(wip)}>
@@ -424,7 +435,7 @@ function ColumnHeader({
       }}
     >
       {onDragPanel && (
-        <span className="dock-grip dock-grip--header" title="Arrastrá para mover el gráfico" aria-hidden onPointerDown={onDragPanel}>
+        <span className="dock-grip dock-grip--header" title={t('Arrastrá para mover el gráfico')} aria-hidden onPointerDown={onDragPanel}>
           <GripVertical size={13} strokeWidth={1.75} />
         </span>
       )}
@@ -437,7 +448,7 @@ function ColumnHeader({
             className={`commit-list__head${movable ? ' commit-list__head--movable' : ''}${marker}`}
             role="columnheader"
             draggable={movable}
-            title={movable ? 'Arrastrá para mover la columna · clic derecho para elegir columnas' : 'Clic derecho para elegir columnas'}
+            title={movable ? t('Arrastrá para mover la columna · clic derecho para elegir columnas') : t('Clic derecho para elegir columnas')}
             onDragStart={(e) => {
               e.dataTransfer.setData(COLUMN_DRAG_TYPE, column.id)
               e.dataTransfer.effectAllowed = 'move'
@@ -452,7 +463,7 @@ function ColumnHeader({
                 className="col-resizer"
                 role="separator"
                 aria-orientation="vertical"
-                aria-label={`Ancho de ${COLUMN_LABELS[column.id]}`}
+                aria-label={t('Ancho de {value}', { value: COLUMN_LABELS[column.id] })}
                 onPointerDown={startResize(index)}
                 onPointerMove={onResizeMove}
                 onPointerUp={endResize}
@@ -553,12 +564,12 @@ function Pill({
     ghost && 'ref-pill--ghost',
     dragOver && 'ref-pill--drop'
   ]
-  const hint = isRef ? '\nDoble clic: checkout · arrastrala sobre otra rama para mergear o rebasear' : ''
+  const hint = isRef ? t('\nDoble clic: cambiar a esta rama · arrastrala sobre otra para fusionar o rebasar') : ''
   return (
     <button
       className={classes.filter(Boolean).join(' ')}
       style={{ '--pill-color': color } as CSSProperties}
-      title={(ghost ? `Rama más cercana que contiene este commit: ${label.label}` : pillTitle(label)) + hint}
+      title={(ghost ? t('Rama más cercana que contiene este commit: {label}', { label: label.label }) : pillTitle(label)) + hint}
       draggable={isRef}
       onClick={(e) => {
         e.stopPropagation()
@@ -608,16 +619,16 @@ function Pill({
 
 function wipSummary({ staged, unstaged, conflicted }: WipSummary): string {
   const parts = []
-  if (conflicted > 0) parts.push(`${conflicted} con conflictos`)
-  if (unstaged > 0) parts.push(`${unstaged} sin preparar`)
-  if (staged > 0) parts.push(`${staged} ${staged === 1 ? 'preparado' : 'preparados'}`)
+  if (conflicted > 0) parts.push(t('{conflicted} con conflictos', { conflicted }))
+  if (unstaged > 0) parts.push(t('{unstaged} sin preparar', { unstaged }))
+  if (staged > 0) parts.push(tn(staged, '{n} preparado', '{n} preparados'))
   return parts.join(' · ')
 }
 
 function pillTitle(label: RefLabel): string {
-  const kinds = { local: 'Rama local', remote: 'Rama remota', tag: 'Tag', head: 'HEAD desacoplado' }
+  const kinds = { local: t('Rama local'), remote: t('Rama remota'), tag: t('Etiqueta'), head: t('HEAD desacoplado') }
   let title = `${kinds[label.kind]}: ${label.label}`
-  if (label.current) title += ' (actual)'
-  if (label.remotes.length > 0) title += ` · también en ${label.remotes.join(', ')}`
+  if (label.current) title += t(' (actual)')
+  if (label.remotes.length > 0) title += t(' · también en {value}', { value: label.remotes.join(', ') })
   return title
 }

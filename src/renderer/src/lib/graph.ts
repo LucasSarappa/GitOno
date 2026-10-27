@@ -39,6 +39,28 @@ interface GraphCommit {
   virtual?: boolean
 }
 
+/**
+ * Filas de los stashes, intercaladas entre los commits por fecha, como en GitKraken. Cada una va
+ * arriba de su commit base (si no, la línea hacia él subiría) y solo si ese commit está cargado.
+ */
+export function withStashRows<C extends { sha: string; authorDate: number }>(
+  commits: C[],
+  stashes: { sha: string; base: string; date: number }[],
+  toRow: (stash: { sha: string; base: string; date: number }) => C
+): C[] {
+  if (stashes.length === 0) return commits
+  const position = new Map(commits.map((c, i) => [c.sha, i]))
+  const before = new Map<number, C[]>()
+  for (const stash of [...stashes].sort((a, b) => b.date - a.date)) {
+    const base = position.get(stash.base)
+    if (base === undefined) continue
+    const older = commits.findIndex((c) => c.authorDate < stash.date)
+    const at = older === -1 ? base : Math.min(older, base)
+    before.set(at, [...(before.get(at) ?? []), toRow(stash)])
+  }
+  return commits.flatMap((commit, i) => [...(before.get(i) ?? []), commit])
+}
+
 /** Color de los carriles de filas virtuales (WIP): se dibuja gris. */
 export const VIRTUAL_COLOR = -1
 

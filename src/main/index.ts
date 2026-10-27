@@ -1,8 +1,10 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, nativeTheme, shell, type BrowserWindowConstructorOptions } from 'electron'
-import { registerIpc, TITLE_BAR_HEIGHT } from './ipc'
+import { attachEditMenu } from './editMenu'
+import type { WindowStart } from '../shared/types'
+import { registerIpc, rememberWindowStart, repoPathFromArgs, TITLE_BAR_HEIGHT } from './ipc'
 
-function createWindow(): void {
+function createWindow(start: WindowStart): void {
   // Mismos colores de fondo que la interfaz (styles.css), para que no haya un destello al abrir.
   const dark = nativeTheme.shouldUseDarkColors
   const ground = dark ? '#16110e' : '#eee6dc'
@@ -35,7 +37,9 @@ function createWindow(): void {
     }
   })
 
+  rememberWindowStart(window, start)
   window.once('ready-to-show', () => window.show())
+  attachEditMenu(window.webContents)
 
   // Los links se abren en el navegador del sistema, nunca dentro de la app.
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -51,10 +55,11 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerIpc()
-  createWindow()
+  registerIpc(createWindow)
+  // La primera ventana recupera las pestañas de la última vez; las que se abren después empiezan vacías.
+  createWindow({ repoPath: repoPathFromArgs(process.argv), restoreTabs: true })
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow({ repoPath: null, restoreTabs: true })
   })
 })
 

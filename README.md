@@ -8,7 +8,18 @@ Cliente Git de escritorio, gratuito y para uso personal, inspirado en GitKraken:
 
 Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no necesita cuenta. El nombre viene de **Ono**, el caniche toy del autor: es el logo de la app.
 
-## Qué hace hoy (v0.6)
+## Qué hace hoy (v0.7)
+
+### Novedades de la v0.7
+
+- **En español o en inglés:** Apariencia → Idioma cambia toda la interfaz, también los avisos y los errores. En inglés usa los términos de GitKraken (Pull, Push, Stash, Stage File); en español, siempre la misma palabra para cada cosa (Traer, Subir, Guardar aparte, Preparar archivo). La equivalencia está en [docs/glosario.md](docs/glosario.md).
+- **Perfiles de usuario,** como en GitKraken: arriba a la derecha está tu foto. Muestra con qué nombre y email firma Git tus commits, y guarda varios perfiles (personal, facultad, trabajo) para cambiar con un clic, en todos los repos o solo en el de la pestaña.
+- **Varias ventanas:** **Ctrl+Shift+N** abre otra ventana, para tener dos repos lado a lado. Clic en el nombre del repo → "Abrir en una ventana nueva" lo abre en otra.
+- **Los stashes en el gráfico,** como en GitKraken: una fila con una caja, unida con línea punteada al commit sobre el que se guardaron. Clic para ver sus cambios; clic derecho para aplicarlos, recuperarlos o borrarlos.
+- **Botón "Preparar archivo"** en cada archivo con cambios, al pasar el mouse (y "Quitar archivo" en los preparados).
+- **Íconos de estado más simples:** el ícono solo, del color del cambio, sin el cuadrito de fondo.
+- **Copiar código** de los diffs: con Ctrl+C o con clic derecho → Copiar. Arrastrar para seleccionar texto ya no elige líneas.
+- **Recuperar un panel oculto:** deja una pestañita en su borde; un clic lo vuelve a abrir.
 
 ### Como GitKraken, con menos carga visual
 
@@ -84,7 +95,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 ### Todo ajustable
 
-- **Paneles:** el de ramas y el de detalle se ensanchan arrastrando su borde (doble clic vuelve al ancho original) y se ocultan con los botones de la barra del historial, o con **Ctrl+K** y **Ctrl+J**.
+- **Paneles:** el de ramas y el de detalle se ensanchan arrastrando su borde (doble clic vuelve al ancho original) y se ocultan con los botones de la barra del historial, o con **Ctrl+K** y **Ctrl+J**. Un panel oculto deja una pestañita en su borde para volver a abrirlo.
 - **Columnas del historial:** se ensanchan arrastrando su borde, se reordenan arrastrando el título y con **clic derecho en el encabezado** se elige cuáles ver (Rama / tag, Gráfico, Autor, Fecha, SHA). Si la ventana es angosta, se ocultan solas para que el mensaje no quede apretado.
 - **Ramas ocultas:** el ojo de cada rama del panel la oculta del gráfico; también se puede mostrar solo una o varias.
 - Todo se recuerda al cerrar la app.
@@ -121,10 +132,10 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 
 ### Cambios locales y commits
 
-- **Fila "// WIP"** arriba del gráfico con los cambios sin commitear, unida con línea punteada al commit actual.
+- **Fila "// WIP"** arriba del gráfico con los cambios sin commitear, unida con línea punteada al commit actual. Los **stashes** también tienen su fila, con una caja, unida al commit sobre el que se guardaron.
 - **Panel de preparación** al elegirla:
   - archivos sin preparar, preparados y con conflictos;
-  - preparar, quitar o descartar un archivo (o todos) con un clic. Los archivos nuevos que se descartan van a la papelera de reciclaje.
+  - preparar, quitar o descartar un archivo (o todos) con un clic: al pasar el mouse aparece **Preparar archivo** (o **Quitar archivo**). Los archivos nuevos que se descartan van a la papelera de reciclaje.
 - **Por bloque y por línea:** al abrir un archivo modificado se ven sus cambios por bloques.
   - Cada bloque se puede preparar, quitar o descartar entero.
   - Con clic (o Shift+clic para un rango) se eligen líneas sueltas, y los botones actúan solo sobre ellas.
@@ -163,7 +174,7 @@ Funciona con cualquier repositorio Git (GitHub, GitLab, servidores propios) y no
 - Detecta si el repo es de GitHub, GitLab u otro servidor.
 
 **Atajos:**
-- Pestañas: **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** / **Ctrl+Shift+Tab** y **Ctrl+O**.
+- Pestañas: **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** / **Ctrl+Shift+Tab** y **Ctrl+O**. **Ctrl+Shift+N**: ventana nueva.
 - **Ctrl+Z** / **Ctrl+Y** (o **Ctrl+Shift+Z**): deshacer y rehacer la última operación.
 - **Ctrl+K** / **Ctrl+J**: mostrar u ocultar el panel de ramas y el de detalle.
 - **Ctrl+P**: paleta de comandos. **Ctrl+F**: buscar commits.
@@ -205,7 +216,7 @@ npx electron-vite dev -- "C:\ruta\a\tu\repo"
 npm run dist
 ```
 
-Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.6.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
+Esto genera `dist/GitOno-Setup-<versión>.exe` (por ejemplo `GitOno-Setup-0.7.0.exe`, unos 110 MB, casi todo es Electron). Ejecutalo y seguí los pasos:
 
 - "Solo para mí" la instala sin permisos de administrador en `%LOCALAPPDATA%\Programs\GitOno`; "Para todos los usuarios", en `C:\Program Files\GitOno`;
 - crea accesos directos en el escritorio y en el menú Inicio.

@@ -2,10 +2,12 @@
 // cambiados a mano, vidrio, avatares y zoom. Se guarda en las preferencias y se aplica al documento
 // (variables CSS y atributos data-*), a Monaco y a las partes nativas de la ventana.
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { type Locale } from '../../../shared/i18n'
 import type { ThemeChoice } from '../../../shared/types'
 import { api } from '../api'
 import { setMonacoTheme } from '../monaco'
+import { systemLocale } from './locale'
 import { loadSetting, saveSetting } from './settings'
 import { cssVariables, DEFAULT_DARK, DEFAULT_LIGHT, paletteById, PALETTES, resolveColors, type ColorKey, type Palette, type ThemeColors } from './themes'
 
@@ -24,6 +26,8 @@ export interface Appearance {
   graphAvatars: boolean
   /** Zoom de toda la interfaz (1 = 100 %). */
   zoom: number
+  /** Idioma de la interfaz. */
+  language: Locale
   /** Versión de las preferencias, para migrar las viejas. */
   version: number
 }
@@ -39,6 +43,8 @@ const DEFAULTS: Appearance = {
   avatars: true,
   graphAvatars: true,
   zoom: 1,
+  // Español si el sistema está en español; si no, inglés.
+  language: systemLocale(),
   version: VERSION
 }
 
@@ -86,7 +92,8 @@ function loadAppearance(): Appearance {
     ...migrated,
     lightPalette: light?.kind === 'light' ? light.id : DEFAULT_LIGHT,
     darkPalette: dark?.kind === 'dark' ? dark.id : DEFAULT_DARK,
-    zoom: ZOOM_LEVELS.includes(migrated.zoom) ? migrated.zoom : 1
+    zoom: ZOOM_LEVELS.includes(migrated.zoom) ? migrated.zoom : 1,
+    language: migrated.language === 'en' ? 'en' : 'es'
   }
 }
 
@@ -107,6 +114,15 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => saveSetting('appearance', appearance), [appearance])
 
+  // Otra ventana de la app cambió la apariencia (comparten las preferencias): se aplica acá también.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'gitono:appearance') setAppearance(loadAppearance())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     root.dataset.theme = palette.kind
@@ -117,6 +133,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [colors, palette.kind, appearance.glass, appearance.theme])
 
   useEffect(() => api.setZoom(appearance.zoom), [appearance.zoom])
+  // El idioma se fija al cargar (lib/locale.ts); para cambiarlo se guarda y se recarga la ventana.
+  const loadedLanguage = useRef(appearance.language)
+  useEffect(() => {
+    document.documentElement.lang = appearance.language
+    void api.setLocale(appearance.language)
+    // El efecto que guarda las preferencias ya corrió (está declarado antes).
+    if (appearance.language !== loadedLanguage.current) window.location.reload()
+  }, [appearance.language])
 
   const value = useMemo<AppearanceState>(() => {
     const update = (change: Partial<Appearance>) => setAppearance((prev) => ({ ...prev, ...change }))

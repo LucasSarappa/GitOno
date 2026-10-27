@@ -12,6 +12,7 @@ import {
   type ReactNode
 } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../../../shared/i18n'
 
 export type DialogValues = Record<string, string | boolean>
 
@@ -131,7 +132,7 @@ function DialogBox({ options, onDone }: { options: DialogOptions; onDone(confirm
       >
         <header className="dialog__header">
           <h2 id="dialog-title">{options.title}</h2>
-          <button type="button" className="btn btn--icon btn--ghost" aria-label="Cerrar" onClick={() => onDone(false)} disabled={busy}>
+          <button type="button" className="btn btn--icon btn--ghost" aria-label={t('Cerrar')} onClick={() => onDone(false)} disabled={busy}>
             <X size={15} strokeWidth={1.75} />
           </button>
         </header>
@@ -146,10 +147,10 @@ function DialogBox({ options, onDone }: { options: DialogOptions; onDone(confirm
         )}
         <footer className="dialog__actions">
           <button type="button" className="btn" onClick={() => onDone(false)} disabled={busy}>
-            Cancelar
+            {t('Cancelar')}
           </button>
           <button type="submit" className={`btn dialog__confirm ${options.danger ? 'btn--danger' : 'btn--primary'}`} disabled={busy || missing}>
-            {busy ? 'Un momento…' : options.confirmLabel}
+            {busy ? t('Un momento…') : options.confirmLabel}
           </button>
         </footer>
       </form>

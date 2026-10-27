@@ -1,3 +1,4 @@
+import { t } from '../../../shared/i18n'
 // Disposición de los tres cuadros del historial: el panel de ramas y el de detalle se pegan a un
 // borde (izquierda, derecha, arriba o abajo) y el gráfico ocupa lo que queda. Como en un "dock":
 // el primero de la lista es el de más afuera y ocupa todo su borde; los siguientes, lo que sobra.
@@ -20,8 +21,8 @@ export interface DockLayout {
   docks: DockPanel[]
 }
 
-export const PANEL_NAMES: Record<PanelId, string> = { refs: 'Ramas', details: 'Detalle' }
-export const SIDE_NAMES: Record<Side, string> = { left: 'a la izquierda', right: 'a la derecha', top: 'arriba', bottom: 'abajo' }
+export const PANEL_NAMES: Record<PanelId, string> = { refs: t('Ramas'), details: t('Detalle') }
+export const SIDE_NAMES: Record<Side, string> = { left: t('a la izquierda'), right: t('a la derecha'), top: t('arriba'), bottom: t('abajo') }
 
 const DEFAULT_SIZE: Record<PanelId, { across: number; along: number }> = {
   // across: ancho si va a un costado; along: alto si va arriba o abajo.
@@ -87,10 +88,10 @@ export function resizePanel(layout: DockLayout, panel: PanelId, size: number): D
 }
 
 export const PRESETS: { id: string; label: string; layout: DockLayout }[] = [
-  { id: 'clasica', label: 'Clásica (como GitKraken)', layout: DEFAULT_LAYOUT },
+  { id: 'clasica', label: t('Clásica (como GitKraken)'), layout: DEFAULT_LAYOUT },
   {
     id: 'espejada',
-    label: 'Espejada: detalle a la izquierda, ramas a la derecha',
+    label: t('Espejada: detalle a la izquierda, ramas a la derecha'),
     layout: {
       docks: [
         { panel: 'details', side: 'left', size: 348, open: true },
@@ -100,7 +101,7 @@ export const PRESETS: { id: string; label: string; layout: DockLayout }[] = [
   },
   {
     id: 'detalle-abajo',
-    label: 'Detalle abajo del gráfico',
+    label: t('Detalle abajo del gráfico'),
     layout: {
       docks: [
         { panel: 'refs', side: 'left', size: 220, open: true },
@@ -110,7 +111,7 @@ export const PRESETS: { id: string; label: string; layout: DockLayout }[] = [
   },
   {
     id: 'ramas-arriba',
-    label: 'Ramas arriba del gráfico',
+    label: t('Ramas arriba del gráfico'),
     layout: {
       docks: [
         { panel: 'details', side: 'right', size: 348, open: true },
@@ -120,7 +121,7 @@ export const PRESETS: { id: string; label: string; layout: DockLayout }[] = [
   },
   {
     id: 'grafico-derecha',
-    label: 'Gráfico a la derecha',
+    label: t('Gráfico a la derecha'),
     layout: {
       docks: [
         { panel: 'refs', side: 'left', size: 220, open: true },
@@ -130,7 +131,7 @@ export const PRESETS: { id: string; label: string; layout: DockLayout }[] = [
   },
   {
     id: 'enfoque',
-    label: 'Solo el gráfico',
+    label: t('Solo el gráfico'),
     layout: {
       docks: [
         { panel: 'refs', side: 'left', size: 220, open: false },

@@ -35,6 +35,8 @@ interface Props {
   isMerge: boolean
   /** Fila de cambios sin commitear: nodo hueco y punteado. */
   isVirtual?: boolean
+  /** Fila de un stash: el nodo es una caja, como en GitKraken. */
+  isStash?: boolean
   /** El nodo es la foto del autor (la dibuja CommitList encima): acá solo va el aro. */
   avatarNode?: boolean
   /** El commit tiene etiquetas de rama o tag: se une con una línea a la columna de etiquetas. */
@@ -44,7 +46,7 @@ interface Props {
 }
 
 export function CommitGraphCell(props: Props) {
-  const { row, lanes, laneWidth, isHead, isMerge, isVirtual = false, avatarNode = false, hasRefs = false, emphasized = false } = props
+  const { row, lanes, laneWidth, isHead, isMerge, isVirtual = false, isStash = false, avatarNode = false, hasRefs = false, emphasized = false } = props
   const x = laneX(row.column, laneWidth)
   const color = laneColor(row.color)
   const nodeRadius = avatarNode ? AVATAR_RING : isVirtual ? 6 : 5.5
@@ -68,7 +70,12 @@ export function CommitGraphCell(props: Props) {
         />
       ))}
       {(isHead || emphasized) && <circle className="graph-cell__halo" cx={x} cy={MIDDLE} r={nodeRadius + 3.5} style={{ stroke: color }} />}
-      {isVirtual ? (
+      {isStash ? (
+        <g className="graph-cell__stash" style={{ stroke: color }}>
+          <rect x={x - 6.5} y={MIDDLE - 5.5} width={13} height={11} rx={2.5} />
+          <path d={`M${x - 6.5} ${MIDDLE - 1.5}H${x + 6.5}M${x - 2} ${MIDDLE + 1.5}H${x + 2}`} />
+        </g>
+      ) : isVirtual ? (
         <circle className="graph-cell__virtual" cx={x} cy={MIDDLE} r={6} style={{ stroke: color }} />
       ) : avatarNode ? (
         <circle className="graph-cell__ring" cx={x} cy={MIDDLE} r={AVATAR_RING} style={{ fill: color }} />

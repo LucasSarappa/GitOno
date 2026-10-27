@@ -4,6 +4,51 @@ Registro de lo que se hace en cada sesión: qué se construyó, qué se decidió
 
 ---
 
+## 2026-10-27 — Sesión 6: idioma, perfiles, ventanas y stashes en el gráfico (v0.7)
+
+### Qué se hizo
+
+- **Idioma completo, español o inglés** (Apariencia → Idioma):
+  - `src/shared/i18n.ts`, estilo gettext: el español es la clave, `t()`, `tn()` para plurales y `tr()` para frases con negritas o enlaces. El inglés está en `i18n.en.ts` (unos 740 textos).
+  - Se pasaron por `t()` todos los textos de la interfaz y los errores del proceso principal. Un script con el compilador de TypeScript envolvió la mayoría; las frases partidas en pedazos (`Sale de <b>main</b> en <code>abc</code>`) y los plurales se rehicieron a mano.
+  - **Glosario** (`docs/glosario.md`): en inglés, los términos de GitKraken (Pull, Push, Stash, Stage File); en español, siempre la misma palabra (Traer, Subir, Guardar aparte, Preparar archivo, Fusionar, Cambiar a, Etiqueta, Restablecer). Se cambiaron unos 110 textos en español para que lo respeten.
+  - El visor Monaco también queda en inglés cuando corresponde.
+- **Perfiles de usuario,** como en GitKraken: la foto arriba a la derecha muestra con qué nombre y email firma Git, y permite guardar varios perfiles y cambiarlos con un clic, en todos los repos (`--global`) o solo en el de la pestaña. `git/identity.ts` lee y escribe la configuración, y la lista de perfiles vive en las preferencias.
+- **Varias ventanas:** Ctrl+Shift+N, la paleta y "Abrir en una ventana nueva" (clic en el nombre del repo). Cada ventana vigila sus repos; la apariencia y los perfiles se sincronizan entre ventanas.
+- **Stashes en el gráfico:** fila con una caja, unida con línea punteada a su commit base, intercalada por fecha (`withStashRows` en `lib/graph.ts`). Clic muestra su detalle y clic derecho abre su menú.
+- **"Preparar archivo"**: botón verde con texto al pasar el mouse por un archivo, como en GitKraken ("Quitar archivo" en los preparados, "Marcar resuelto" en los conflictos). Las acciones aparecen solo con el mouse encima, así el nombre usa todo el ancho.
+- **Íconos de estado simples:** el ícono solo, del color del estado, sin el cuadrito de fondo.
+- **Copiar código:** Ctrl+C ya andaba, pero no había menú de clic derecho (Electron no trae uno) y arrastrar para seleccionar en el diff por bloques también elegía líneas. Ahora hay menú Copiar / Cortar / Pegar (`main/editMenu.ts`) y seleccionar texto no elige líneas.
+- **Recuperar un panel oculto:** deja una pestañita en el borde del gráfico donde estaba; un clic lo vuelve a abrir.
+
+### Decisiones y por qué
+
+- **El español como clave** (y no claves como `menu.pull`): el código se sigue leyendo en español, como pide el proyecto, y un texto sin traducir se ve igual en español.
+- **Cambiar de idioma recarga la ventana.** Hay textos armados al cargar cada módulo (nombres de columnas, temas, disposiciones); con la recarga se traducen todos sin volver funciones cada constante. `lib/locale.ts` fija el idioma antes que nada, y las pestañas se recuperan solas.
+- **Los perfiles no inventan otra configuración:** lo que firma los commits sigue siendo `git config`, así la terminal y GitOno usan lo mismo. La primera vez, la identidad global pasa a ser el perfil "Personal".
+- **Solo la primera ventana guarda las pestañas:** si todas las guardaran, la última en cerrarse pisaría a las demás.
+- **El stash va siempre arriba de su commit base,** aunque sea más viejo que los commits de en medio: si no, la línea punteada tendría que subir.
+
+### Cómo se probó
+
+- 200 tests, typecheck y build. Nuevos: el test de traducciones (recorre el código y falla si falta una traducción o no coinciden las variables), la identidad de Git con una configuración global de prueba (`GIT_CONFIG_GLOBAL`), y dónde va cada stash en el gráfico.
+- En la app, con el repo de prueba y una configuración global de Git de prueba (para no tocar la del autor):
+  - el stash en el gráfico, su detalle y su menú;
+  - el cambio a inglés y de vuelta, en claro, en oscuro y con el vidrio prendido;
+  - "Preparar archivo" y los íconos nuevos;
+  - Ctrl+C desde el diff por bloques y desde Monaco (se leyó el portapapeles);
+  - el perfil: "Solo acá" escribe la identidad del repo y "Usar la identidad global" la quita;
+  - Ctrl+Shift+N y "Abrir en una ventana nueva": dos ventanas con el mismo repo; al cerrar las otras, la primera sigue viendo los cambios del disco;
+  - la pestaña del panel oculto, a la izquierda.
+
+### Pendientes
+
+- Los mensajes de error que vienen de Git mismo (por ejemplo, un push rechazado) siguen en inglés en los dos idiomas.
+- El menú de clic derecho propio de Monaco no se pudo verificar en las capturas (se dibuja aparte); el copiado con Ctrl+C sí.
+- El detalle de un stash cuenta los archivos contra su primer padre, y en el repo de prueba muestra "0 archivos": revisar cómo se arma ese diff.
+
+---
+
 ## 2026-10-24 — Sesión 5 (cierre): fotos del gráfico enteras (v0.6.1)
 
 - **Fotos recortadas en el gráfico:** el halo del commit actual se cortaba contra el borde izquierdo de la columna. Además, un ancho de gráfico guardado antes de la v0.6 (cuando los carriles medían 16 px y no 24) cortaba las fotos de los últimos carriles. Ahora el gráfico tiene 6 px de margen a cada lado, y las preferencias de columnas tienen versión: las viejas vuelven, una sola vez, a ajustar el gráfico a sus carriles. Se probó con una foto real de GitHub y con un test de la migración (187 tests).

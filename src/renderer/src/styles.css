@@ -481,27 +481,22 @@ textarea.field {
 
 .status-badge {
   flex: none;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   display: inline-grid;
   place-items: center;
-  border-radius: 5px;
-  color: #fff;
-}
-:root[data-theme='dark'] .status-badge {
-  color: var(--ground);
 }
 .status-badge--added {
-  background: var(--added);
+  color: var(--added);
 }
 .status-badge--deleted {
-  background: var(--deleted);
+  color: var(--deleted);
 }
 .status-badge--modified {
-  background: var(--modified);
+  color: var(--modified);
 }
 .status-badge--renamed {
-  background: var(--renamed);
+  color: var(--renamed);
 }
 
 .avatar {
@@ -579,6 +574,119 @@ textarea.field {
 /* macOS: a la izquierda están los semáforos de la ventana. */
 .app[data-platform='darwin'] .titlebar {
   padding-left: 82px;
+}
+.titlebar__end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+.profile-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+  transition: box-shadow 120ms var(--ease);
+}
+.profile-button:hover,
+.profile-button--open {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.menu--profile {
+  width: 360px;
+}
+.profile-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-current__text {
+  display: grid;
+  min-width: 0;
+}
+.profile-current__text > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-current__scope {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+.profile-note {
+  margin: -4px 0 0;
+}
+.profile-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+}
+.profile-row:hover {
+  background: var(--hover);
+}
+.profile-row--active {
+  background: var(--selected);
+}
+.profile-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  text-align: left;
+}
+.profile-row__text {
+  display: grid;
+  min-width: 0;
+}
+.profile-row__label {
+  font-weight: 600;
+}
+.profile-row__identity {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.profile-row__check {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent-ink);
+}
+.profile-row__actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+}
+.profile-row:hover .profile-row__actions,
+.profile-row:focus-within .profile-row__actions {
+  display: flex;
+}
+.profile-error {
+  margin: 0;
+  color: var(--deleted);
 }
 .titlebar__logo {
   width: 24px;
@@ -1147,8 +1255,70 @@ body.dock-dragging * {
 
 /* Centro */
 .history__center {
+  position: relative;
   display: flex;
   flex-direction: column;
+}
+
+/* Pestaña de un panel oculto: chica y tenue hasta que se le pasa el mouse. */
+.dock-rail {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 5px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 550;
+  opacity: 0.78;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  transition:
+    opacity 120ms var(--ease),
+    color 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.dock-rail:hover,
+.dock-rail:focus-visible {
+  opacity: 1;
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.dock-rail[data-side='left'],
+.dock-rail[data-side='right'] {
+  top: 50%;
+  writing-mode: vertical-rl;
+  transform: translateY(-50%);
+}
+.dock-rail[data-side='left'] {
+  left: 0;
+  /* Girada: se lee de abajo hacia arriba, y su borde derecho (en CSS) queda contra el borde del gráfico. */
+  transform: translateY(-50%) rotate(180deg);
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.dock-rail[data-side='right'] {
+  right: 0;
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.dock-rail[data-side='top'],
+.dock-rail[data-side='bottom'] {
+  left: 50%;
+  padding: 4px 9px;
+  transform: translateX(-50%);
+}
+.dock-rail[data-side='top'] {
+  top: 0;
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.dock-rail[data-side='bottom'] {
+  bottom: 0;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 /* Búsqueda del historial, en la barra de herramientas. */
 .toolbar__search {
@@ -1378,6 +1548,17 @@ body.dock-dragging * {
   fill: var(--solid);
   stroke-width: 2;
   stroke-dasharray: 3 2;
+}
+.graph-cell__stash {
+  fill: var(--solid);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.commit-row__stash {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-2);
+  font-style: italic;
 }
 .graph-cell__halo {
   fill: none;
@@ -1886,16 +2067,36 @@ button.ref-pill--current:hover {
   color: var(--text-3);
   font-size: 12px;
 }
+/* Las acciones aparecen al pasar el mouse (o con foco): mientras tanto el nombre usa todo el ancho. */
 .wip-file__actions {
-  display: flex;
+  flex: none;
+  display: none;
+  align-items: center;
   gap: 2px;
-  opacity: 0;
-  transition: opacity 120ms var(--ease);
 }
 .wip-file:hover .wip-file__actions,
 .wip-file:focus-within .wip-file__actions,
 .wip-file--selected .wip-file__actions {
-  opacity: 1;
+  display: flex;
+}
+.wip-file__action {
+  height: 22px;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+/* "Preparar archivo": verde, el color de lo que se suma, como el botón de GitKraken. */
+.wip-file__action--accent {
+  border-color: transparent;
+  background: var(--added);
+  color: #fff;
+}
+:root[data-theme='dark'] .wip-file__action--accent {
+  color: var(--ground);
+}
+.wip-file__action--accent:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--added) 86%, var(--text));
 }
 
 .commit-box {

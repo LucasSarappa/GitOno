@@ -4,6 +4,7 @@ import type { FileChange, FileContent, FileSource } from '../../../shared/types'
 import { api } from '../api'
 import { languageFor, monaco } from '../monaco'
 import { StatusBadge } from './StatusBadge'
+import { t } from '../../../shared/i18n'
 
 export interface DiffOptions {
   sideBySide: boolean
@@ -131,37 +132,37 @@ export function DiffView({ root, left, right, labelA, labelB, change, options, o
               change.path
             )}
           </span>
-          {state.status === 'loading' && <span className="text-2 small">Cargando…</span>}
+          {state.status === 'loading' && <span className="text-2 small">{t('Cargando…')}</span>}
         </div>
         <div className="diff__actions">
-          <button className="btn btn--icon btn--ghost" aria-label="Cambio anterior" title="Cambio anterior" onClick={() => editorRef.current?.goToDiff('previous')}>
+          <button className="btn btn--icon btn--ghost" aria-label={t('Cambio anterior')} title={t('Cambio anterior')} onClick={() => editorRef.current?.goToDiff('previous')}>
             <ChevronUp size={16} strokeWidth={1.75} />
           </button>
-          <button className="btn btn--icon btn--ghost" aria-label="Cambio siguiente" title="Cambio siguiente" onClick={() => editorRef.current?.goToDiff('next')}>
+          <button className="btn btn--icon btn--ghost" aria-label={t('Cambio siguiente')} title={t('Cambio siguiente')} onClick={() => editorRef.current?.goToDiff('next')}>
             <ChevronDown size={16} strokeWidth={1.75} />
           </button>
           <span className="divider" />
-          <Toggle label="Lado a lado" checked={options.sideBySide} onChange={() => toggle('sideBySide')} />
-          <Toggle label="Ignorar espacios" checked={options.ignoreWhitespace} onChange={() => toggle('ignoreWhitespace')} />
-          <Toggle label="Ocultar sin cambios" checked={options.hideUnchanged} onChange={() => toggle('hideUnchanged')} />
+          <Toggle label={t('Lado a lado')} checked={options.sideBySide} onChange={() => toggle('sideBySide')} />
+          <Toggle label={t('Ignorar espacios')} checked={options.ignoreWhitespace} onChange={() => toggle('ignoreWhitespace')} />
+          <Toggle label={t('Ocultar sin cambios')} checked={options.hideUnchanged} onChange={() => toggle('hideUnchanged')} />
         </div>
       </header>
 
       <div className={`diff__sides${options.sideBySide ? '' : ' diff__sides--inline'}`}>
         <span>
           <strong>A</strong> · {labelA}
-          {change.status === 'added' && <em> (no existe)</em>}
+          {change.status === 'added' && <em> {t('(no existe)')}</em>}
         </span>
         <span>
           <strong>B</strong> · {labelB}
-          {change.status === 'deleted' && <em> (no existe)</em>}
+          {change.status === 'deleted' && <em> {t('(no existe)')}</em>}
         </span>
       </div>
 
       {identical && (
         <div className="diff__notice">
-          El contenido es idéntico en las dos ramas
-          {change.status === 'renamed' ? ': solo cambió el nombre.' : '; cambiaron solo los permisos o el tipo de archivo.'}
+          {t('El contenido es idéntico en las dos ramas')}
+          {change.status === 'renamed' ? t(': solo cambió el nombre.') : t('; cambiaron solo los permisos o el tipo de archivo.')}
         </div>
       )}
 
@@ -177,11 +178,11 @@ export function DiffView({ root, left, right, labelA, labelB, change, options, o
 function blockingMessage(state: LoadState): string | null {
   // Mientras carga se deja ver el archivo anterior, para que no parpadee al moverse con el teclado.
   if (state.status === 'loading') return null
-  if (state.status === 'error') return `No se pudo leer el archivo: ${state.message}`
+  if (state.status === 'error') return t('No se pudo leer el archivo: {message}', { message: state.message })
   for (const content of [state.left, state.right]) {
-    if (content.kind === 'binary') return 'Es un archivo binario: no se puede mostrar la diferencia como texto.'
+    if (content.kind === 'binary') return t('Es un archivo binario: no se puede mostrar la diferencia como texto.')
     if (content.kind === 'too-large') {
-      return `El archivo pesa ${(content.size / 1024 / 1024).toFixed(1)} MB; por ahora el visor muestra archivos de hasta 5 MB.`
+      return t('El archivo pesa {value} MB; por ahora el visor muestra archivos de hasta 5 MB.', { value: (content.size / 1024 / 1024).toFixed(1) })
     }
   }
   return null
